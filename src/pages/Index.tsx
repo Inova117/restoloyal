@@ -66,7 +66,7 @@ const Index = () => {
 
       try {
         const { data, error } = await supabase
-          .from('restaurants')
+          .from('restaurants' as any)
           .select('*')
           .eq('user_id', user.id)
           .single();

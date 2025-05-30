@@ -63,7 +63,7 @@ const Auth = () => {
           title: "Welcome back!",
           description: "You have successfully logged in.",
         });
-        window.location.href = '/';
+        navigate('/');
       }
     } catch (error: any) {
       toast({
@@ -104,9 +104,9 @@ const Auth = () => {
       if (error) throw error;
 
       if (data.user) {
-        // Create restaurant record
+        // Create restaurant record using generic typing
         const { error: restaurantError } = await supabase
-          .from('restaurants')
+          .from('restaurants' as any)
           .insert({
             user_id: data.user.id,
             name: restaurantName,
@@ -121,7 +121,7 @@ const Auth = () => {
           title: "Account created!",
           description: "Welcome to your restaurant loyalty program.",
         });
-        window.location.href = '/';
+        navigate('/');
       }
     } catch (error: any) {
       toast({

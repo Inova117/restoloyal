@@ -65,19 +65,22 @@ const Index = () => {
       if (!user) return;
 
       try {
-        const { data, error } = await supabase
-          .from('restaurants' as any)
+        // Try to fetch restaurant data - will work once database is set up
+        const { data, error } = await (supabase as any)
+          .from('restaurants')
           .select('*')
           .eq('user_id', user.id)
           .single();
 
         if (error) {
           console.error('Error fetching restaurant:', error);
+          // Don't throw error, just log it for now
         } else {
           setRestaurant(data);
         }
       } catch (error) {
-        console.error('Error:', error);
+        console.error('Database not ready yet:', error);
+        // Don't throw error, use default state
       } finally {
         setLoading(false);
       }

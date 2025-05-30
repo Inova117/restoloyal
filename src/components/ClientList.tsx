@@ -2,7 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { QrCode, Phone, Mail, Gift, Plus } from 'lucide-react';
+import { QrCode, Phone, Mail, Gift, Plus, Users } from 'lucide-react';
 import StampProgress from './StampProgress';
 import { toast } from '@/hooks/use-toast';
 

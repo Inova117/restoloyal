@@ -6,13 +6,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { QrCode, User, Mail, Phone } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AddClientDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  restaurantId?: string;
+  onClientAdded?: () => void;
 }
 
-const AddClientDialog = ({ open, onOpenChange }: AddClientDialogProps) => {
+const AddClientDialog = ({ open, onOpenChange, restaurantId, onClientAdded }: AddClientDialogProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -20,23 +23,60 @@ const AddClientDialog = ({ open, onOpenChange }: AddClientDialogProps) => {
     phone: ''
   });
 
+  const generateQRCode = () => {
+    return `QR${Date.now()}${Math.random().toString(36).substr(2, 9)}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!restaurantId) {
+      toast({
+        title: "Error",
+        description: "Restaurant not found. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    try {
+      const qrCode = generateQRCode();
+      
+      const { error } = await supabase
+        .from('clients')
+        .insert({
+          restaurant_id: restaurantId,
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          qr_code: qrCode,
+        });
 
-    const qrCode = `QR${Date.now()}`;
-    
-    toast({
-      title: "Client Added Successfully",
-      description: `${formData.name} has been registered with QR code: ${qrCode}`,
-    });
+      if (error) throw error;
 
-    setFormData({ name: '', email: '', phone: '' });
-    setIsLoading(false);
-    onOpenChange(false);
+      toast({
+        title: "Client Added Successfully",
+        description: `${formData.name} has been registered with QR code: ${qrCode}`,
+      });
+
+      setFormData({ name: '', email: '', phone: '' });
+      onOpenChange(false);
+      
+      if (onClientAdded) {
+        onClientAdded();
+      }
+    } catch (error: any) {
+      console.error('Error adding client:', error);
+      toast({
+        title: "Error Adding Client",
+        description: error.message || "Failed to add client. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -84,7 +124,6 @@ const AddClientDialog = ({ open, onOpenChange }: AddClientDialogProps) => {
               placeholder="Enter client's email"
               value={formData.email}
               onChange={(e) => handleInputChange('email', e.target.value)}
-              required
               className="w-full"
             />
           </div>
@@ -100,7 +139,6 @@ const AddClientDialog = ({ open, onOpenChange }: AddClientDialogProps) => {
               placeholder="Enter client's phone number"
               value={formData.phone}
               onChange={(e) => handleInputChange('phone', e.target.value)}
-              required
               className="w-full"
             />
           </div>

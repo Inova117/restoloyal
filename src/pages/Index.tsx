@@ -18,80 +18,86 @@ interface Restaurant {
   stamps_required: number;
 }
 
+interface Client {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  stamps: number;
+  qr_code: string;
+  created_at: string;
+}
+
 const Index = () => {
   const { user, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [isAddStampOpen, setIsAddStampOpen] = useState(false);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Mock data - will be replaced with real Supabase data
-  const [clients] = useState([
-    {
-      id: '1',
-      name: 'John Doe',
-      email: 'john@example.com',
-      phone: '+1234567890',
-      stamps: 7,
-      maxStamps: 10,
-      qrCode: 'QR123456',
-      createdAt: '2024-01-15'
-    },
-    {
-      id: '2',
-      name: 'Sarah Smith',
-      email: 'sarah@example.com',
-      phone: '+1234567891',
-      stamps: 3,
-      maxStamps: 10,
-      qrCode: 'QR123457',
-      createdAt: '2024-01-20'
-    },
-    {
-      id: '3',
-      name: 'Mike Johnson',
-      email: 'mike@example.com',
-      phone: '+1234567892',
-      stamps: 10,
-      maxStamps: 10,
-      qrCode: 'QR123458',
-      createdAt: '2024-01-10'
-    }
-  ]);
-
   useEffect(() => {
-    const fetchRestaurant = async () => {
+    const fetchRestaurantData = async () => {
       if (!user) return;
 
       try {
-        // Try to fetch restaurant data - will work once database is set up
-        const { data, error } = await (supabase as any)
+        // Fetch restaurant data
+        const { data: restaurantData, error: restaurantError } = await supabase
           .from('restaurants')
           .select('*')
           .eq('user_id', user.id)
           .single();
 
-        if (error) {
-          console.error('Error fetching restaurant:', error);
-          // Don't throw error, just log it for now
+        if (restaurantError) {
+          console.error('Error fetching restaurant:', restaurantError);
         } else {
-          setRestaurant(data);
+          setRestaurant(restaurantData);
+
+          // Fetch clients for this restaurant
+          const { data: clientsData, error: clientsError } = await supabase
+            .from('clients')
+            .select('*')
+            .eq('restaurant_id', restaurantData.id)
+            .order('created_at', { ascending: false });
+
+          if (clientsError) {
+            console.error('Error fetching clients:', clientsError);
+          } else {
+            setClients(clientsData || []);
+          }
         }
       } catch (error) {
-        console.error('Database not ready yet:', error);
-        // Don't throw error, use default state
+        console.error('Database error:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchRestaurant();
+    fetchRestaurantData();
   }, [user]);
 
   const totalClients = clients.length;
   const totalStamps = clients.reduce((sum, client) => sum + client.stamps, 0);
-  const readyForReward = clients.filter(client => client.stamps >= client.maxStamps).length;
+  const readyForReward = clients.filter(client => 
+    client.stamps >= (restaurant?.stamps_required || 10)
+  ).length;
+
+  const refreshClients = async () => {
+    if (!restaurant) return;
+    
+    const { data: clientsData, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('restaurant_id', restaurant.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error refreshing clients:', error);
+    } else {
+      setClients(clientsData || []);
+    }
+  };
 
   if (loading) {
     return (
@@ -204,7 +210,7 @@ const Index = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {clients.filter(client => client.stamps >= client.maxStamps).map(client => (
+                    {clients.filter(client => client.stamps >= (restaurant?.stamps_required || 10)).map(client => (
                       <div key={client.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                         <div>
                           <p className="font-medium text-gray-900">{client.name}</p>
@@ -260,18 +266,31 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="clients">
-            <ClientList clients={clients} />
+            <ClientList 
+              clients={clients.map(client => ({
+                ...client,
+                maxStamps: restaurant?.stamps_required || 10
+              }))} 
+              onRefresh={refreshClients}
+              restaurantId={restaurant?.id}
+            />
           </TabsContent>
         </Tabs>
 
         <AddClientDialog 
           open={isAddClientOpen} 
           onOpenChange={setIsAddClientOpen}
+          restaurantId={restaurant?.id}
+          onClientAdded={refreshClients}
         />
         
         <AddStampDialog 
           open={isAddStampOpen} 
           onOpenChange={setIsAddStampOpen}
+          clients={clients}
+          restaurantId={restaurant?.id}
+          stampsRequired={restaurant?.stamps_required || 10}
+          onStampAdded={refreshClients}
         />
       </div>
     </div>

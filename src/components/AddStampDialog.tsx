@@ -7,72 +7,111 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Scan, QrCode, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+
+interface Client {
+  id: string;
+  name: string;
+  email: string;
+  stamps: number;
+  qr_code: string;
+}
 
 interface AddStampDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  clients: Client[];
+  restaurantId?: string;
+  stampsRequired: number;
+  onStampAdded?: () => void;
 }
 
-const AddStampDialog = ({ open, onOpenChange }: AddStampDialogProps) => {
+const AddStampDialog = ({ 
+  open, 
+  onOpenChange, 
+  clients, 
+  restaurantId, 
+  stampsRequired,
+  onStampAdded 
+}: AddStampDialogProps) => {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [qrCode, setQrCode] = useState('');
-  const [foundClient, setFoundClient] = useState<any>(null);
+  const [foundClient, setFoundClient] = useState<Client | null>(null);
   const [isScanning, setIsScanning] = useState(false);
-
-  // Mock client data
-  const mockClients = [
-    { id: '1', name: 'John Doe', email: 'john@example.com', stamps: 7, maxStamps: 10, qrCode: 'QR123456' },
-    { id: '2', name: 'Sarah Smith', email: 'sarah@example.com', stamps: 3, maxStamps: 10, qrCode: 'QR123457' },
-    { id: '3', name: 'Mike Johnson', email: 'mike@example.com', stamps: 9, maxStamps: 10, qrCode: 'QR123458' }
-  ];
 
   const handleQrCodeInput = (value: string) => {
     setQrCode(value);
     
     // Find client by QR code
-    const client = mockClients.find(c => c.qrCode === value);
+    const client = clients.find(c => c.qr_code === value);
     setFoundClient(client || null);
   };
 
   const handleScanQR = () => {
     setIsScanning(true);
     
-    // Simulate QR scanning
+    // Simulate QR scanning with a random client
     setTimeout(() => {
-      const randomClient = mockClients[Math.floor(Math.random() * mockClients.length)];
-      setQrCode(randomClient.qrCode);
-      setFoundClient(randomClient);
+      if (clients.length > 0) {
+        const randomClient = clients[Math.floor(Math.random() * clients.length)];
+        setQrCode(randomClient.qr_code);
+        setFoundClient(randomClient);
+        
+        toast({
+          title: "QR Code Scanned",
+          description: `Found client: ${randomClient.name}`,
+        });
+      }
       setIsScanning(false);
-      
-      toast({
-        title: "QR Code Scanned",
-        description: `Found client: ${randomClient.name}`,
-      });
     }, 2000);
   };
 
   const handleAddStamp = async () => {
-    if (!foundClient) return;
+    if (!foundClient || !restaurantId || !user) return;
     
     setIsLoading(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const newStampCount = foundClient.stamps + 1;
-    const isRewardReady = newStampCount >= foundClient.maxStamps;
-    
-    toast({
-      title: "Stamp Added Successfully",
-      description: isRewardReady 
-        ? `${foundClient.name} is now eligible for a reward!`
-        : `${foundClient.name} now has ${newStampCount}/${foundClient.maxStamps} stamps`,
-    });
-    
-    setIsLoading(false);
-    setQrCode('');
-    setFoundClient(null);
-    onOpenChange(false);
+    try {
+      // Add stamp to the stamps table
+      const { error } = await supabase
+        .from('stamps')
+        .insert({
+          client_id: foundClient.id,
+          restaurant_id: restaurantId,
+          added_by: user.id,
+        });
+
+      if (error) throw error;
+
+      const newStampCount = foundClient.stamps + 1;
+      const isRewardReady = newStampCount >= stampsRequired;
+      
+      toast({
+        title: "Stamp Added Successfully",
+        description: isRewardReady 
+          ? `${foundClient.name} is now eligible for a reward!`
+          : `${foundClient.name} now has ${newStampCount}/${stampsRequired} stamps`,
+      });
+      
+      setQrCode('');
+      setFoundClient(null);
+      onOpenChange(false);
+      
+      if (onStampAdded) {
+        onStampAdded();
+      }
+    } catch (error: any) {
+      console.error('Error adding stamp:', error);
+      toast({
+        title: "Error Adding Stamp",
+        description: error.message || "Failed to add stamp. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const resetForm = () => {
@@ -137,12 +176,12 @@ const AddStampDialog = ({ open, onOpenChange }: AddStampDialogProps) => {
                     <p className="text-sm text-green-700">{foundClient.email}</p>
                     <div className="mt-2">
                       <p className="text-sm font-medium text-green-800">
-                        Current Progress: {foundClient.stamps}/{foundClient.maxStamps} stamps
+                        Current Progress: {foundClient.stamps}/{stampsRequired} stamps
                       </p>
                       <div className="w-full bg-green-200 rounded-full h-2 mt-1">
                         <div
                           className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${(foundClient.stamps / foundClient.maxStamps) * 100}%` }}
+                          style={{ width: `${(foundClient.stamps / stampsRequired) * 100}%` }}
                         />
                       </div>
                     </div>

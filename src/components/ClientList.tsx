@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { QrCode, Phone, Mail, Gift, Plus, Users } from 'lucide-react';
 import StampProgress from './StampProgress';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Client {
   id: string;
@@ -13,27 +15,106 @@ interface Client {
   phone: string;
   stamps: number;
   maxStamps: number;
-  qrCode: string;
-  createdAt: string;
+  qr_code: string;
+  created_at: string;
 }
 
 interface ClientListProps {
   clients: Client[];
+  onRefresh?: () => void;
+  restaurantId?: string;
 }
 
-const ClientList = ({ clients }: ClientListProps) => {
-  const handleAddStamp = (clientId: string, clientName: string) => {
-    toast({
-      title: "Stamp Added",
-      description: `Added stamp for ${clientName}`,
-    });
+const ClientList = ({ clients, onRefresh, restaurantId }: ClientListProps) => {
+  const { user } = useAuth();
+
+  const handleAddStamp = async (clientId: string, clientName: string) => {
+    if (!restaurantId || !user) {
+      toast({
+        title: "Error",
+        description: "Unable to add stamp. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('stamps')
+        .insert({
+          client_id: clientId,
+          restaurant_id: restaurantId,
+          added_by: user.id,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Stamp Added",
+        description: `Added stamp for ${clientName}`,
+      });
+
+      if (onRefresh) {
+        onRefresh();
+      }
+    } catch (error: any) {
+      console.error('Error adding stamp:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add stamp. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleRedeemReward = (clientId: string, clientName: string) => {
-    toast({
-      title: "Reward Redeemed",
-      description: `${clientName} has redeemed their reward!`,
-    });
+  const handleRedeemReward = async (clientId: string, clientName: string, stamps: number) => {
+    if (!restaurantId || !user) {
+      toast({
+        title: "Error",
+        description: "Unable to redeem reward. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Add reward record
+      const { error: rewardError } = await supabase
+        .from('rewards')
+        .insert({
+          client_id: clientId,
+          restaurant_id: restaurantId,
+          redeemed_by: user.id,
+          stamps_used: stamps,
+          description: 'Free item reward',
+        });
+
+      if (rewardError) throw rewardError;
+
+      // Reset client stamps to 0
+      const { error: updateError } = await supabase
+        .from('clients')
+        .update({ stamps: 0 })
+        .eq('id', clientId);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Reward Redeemed",
+        description: `${clientName} has redeemed their reward! Stamps reset to 0.`,
+      });
+
+      if (onRefresh) {
+        onRefresh();
+      }
+    } catch (error: any) {
+      console.error('Error redeeming reward:', error);
+      toast({
+        title: "Error",
+        description: "Failed to redeem reward. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleShowQR = (qrCode: string, clientName: string) => {
@@ -60,20 +141,24 @@ const ClientList = ({ clients }: ClientListProps) => {
                     {client.name}
                   </CardTitle>
                   <div className="space-y-1 mt-2">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Mail className="w-4 h-4 mr-2" />
-                      {client.email}
-                    </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Phone className="w-4 h-4 mr-2" />
-                      {client.phone}
-                    </div>
+                    {client.email && (
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Mail className="w-4 h-4 mr-2" />
+                        {client.email}
+                      </div>
+                    )}
+                    {client.phone && (
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Phone className="w-4 h-4 mr-2" />
+                        {client.phone}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleShowQR(client.qrCode, client.name)}
+                  onClick={() => handleShowQR(client.qr_code, client.name)}
                   className="p-2"
                 >
                   <QrCode className="w-4 h-4" />
@@ -121,7 +206,7 @@ const ClientList = ({ clients }: ClientListProps) => {
                 
                 {client.stamps >= client.maxStamps && (
                   <Button
-                    onClick={() => handleRedeemReward(client.id, client.name)}
+                    onClick={() => handleRedeemReward(client.id, client.name, client.stamps)}
                     className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
                     size="sm"
                   >
@@ -132,7 +217,7 @@ const ClientList = ({ clients }: ClientListProps) => {
               </div>
               
               <div className="text-xs text-gray-500 text-center">
-                Joined {new Date(client.createdAt).toLocaleDateString()}
+                Joined {new Date(client.created_at).toLocaleDateString()}
               </div>
             </CardContent>
           </Card>

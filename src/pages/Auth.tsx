@@ -104,9 +104,9 @@ const Auth = () => {
       if (error) throw error;
 
       if (data.user) {
-        // Try to create restaurant record - will work once database is set up
+        // Create restaurant record
         try {
-          const { error: restaurantError } = await (supabase as any)
+          const { error: restaurantError } = await supabase
             .from('restaurants')
             .insert({
               user_id: data.user.id,
@@ -116,11 +116,14 @@ const Auth = () => {
 
           if (restaurantError) {
             console.error('Error creating restaurant:', restaurantError);
-            // Don't throw error, just log it for now
+            toast({
+              title: "Restaurant creation failed",
+              description: "Account created but restaurant setup failed. Please contact support.",
+              variant: "destructive",
+            });
           }
         } catch (dbError) {
-          console.error('Database not ready yet:', dbError);
-          // Don't throw error, authentication still succeeded
+          console.error('Database error:', dbError);
         }
 
         toast({

@@ -1,23 +1,32 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { QrCode, Users, Gift, Plus, Scan } from 'lucide-react';
+import { QrCode, Users, Gift, Plus, Scan, LogOut, Store } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import ClientList from '@/components/ClientList';
 import AddStampDialog from '@/components/AddStampDialog';
 import AddClientDialog from '@/components/AddClientDialog';
-import StampProgress from '@/components/StampProgress';
+
+interface Restaurant {
+  id: string;
+  name: string;
+  stamps_required: number;
+}
 
 const Index = () => {
+  const { user, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [isAddStampOpen, setIsAddStampOpen] = useState(false);
+  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data - will be replaced with Supabase integration
+  // Mock data - will be replaced with real Supabase data
   const [clients] = useState([
     {
       id: '1',
@@ -51,19 +60,61 @@ const Index = () => {
     }
   ]);
 
+  useEffect(() => {
+    const fetchRestaurant = async () => {
+      if (!user) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('restaurants')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching restaurant:', error);
+        } else {
+          setRestaurant(data);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRestaurant();
+  }, [user]);
+
   const totalClients = clients.length;
   const totalStamps = clients.reduce((sum, client) => sum + client.stamps, 0);
   const readyForReward = clients.filter(client => client.stamps >= client.maxStamps).length;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your restaurant...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Restaurant Loyalty Hub</h1>
-            <p className="text-gray-600 text-lg">Manage your customer loyalty program</p>
+          <div className="flex items-center">
+            <Store className="w-8 h-8 text-blue-600 mr-3" />
+            <div>
+              <h1 className="text-4xl font-bold text-gray-900 mb-2">
+                {restaurant?.name || 'Restaurant Loyalty Hub'}
+              </h1>
+              <p className="text-gray-600 text-lg">Manage your customer loyalty program</p>
+            </div>
           </div>
-          <div className="flex gap-3">
+          <div className="flex items-center gap-3">
             <Button 
               onClick={() => setIsAddClientOpen(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -79,6 +130,15 @@ const Index = () => {
             >
               <Scan className="w-5 h-5 mr-2" />
               Add Stamp
+            </Button>
+            <Button 
+              onClick={signOut}
+              variant="outline"
+              size="lg"
+              className="border-2"
+            >
+              <LogOut className="w-5 h-5 mr-2" />
+              Logout
             </Button>
           </div>
         </div>

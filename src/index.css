@@ -768,4 +768,23 @@
   .focus-ring-inset {
     @apply focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring;
   }
+
+  /* Enhanced scrollbar utilities */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* Internet Explorer 10+ */
+    scrollbar-width: none;  /* Firefox */
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar { 
+    display: none;  /* Safari and Chrome */
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
 }

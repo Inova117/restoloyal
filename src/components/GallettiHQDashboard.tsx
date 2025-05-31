@@ -151,6 +151,17 @@ export default function GallettiHQDashboard() {
   const [locationSettings, setLocationSettings] = useState<LocationSettings | null>(null)
   const [showAddStaffDialog, setShowAddStaffDialog] = useState(false)
   
+  // Settings form state
+  const [corporateSettings, setCorporateSettings] = useState({
+    companyName: 'Galletti Foods',
+    logoUrl: '',
+    supportEmail: 'support@galletti.com',
+    websiteUrl: 'https://galletti.com',
+    defaultStampsPerDollar: 1,
+    defaultStampsForReward: 10,
+    defaultRewardValue: 15.00
+  })
+  
   // New location form state
   const [newLocation, setNewLocation] = useState({
     name: '',
@@ -203,31 +214,35 @@ export default function GallettiHQDashboard() {
       // Simulate loading location data
       await new Promise(resolve => setTimeout(resolve, 1000))
       
-      // Clean location statistics - ready for real data
-      const cleanStats: LocationStats = {
-        total_locations: 0,
-        active_locations: 0,
-        total_customers: 0,
-        total_revenue: 0,
-        total_stamps: 0,
-        total_rewards: 0,
-        monthly_growth: 0,
-        top_performing_locations: [],
+      // Load persisted locations from localStorage
+      const persistedLocations = JSON.parse(localStorage.getItem('galletti_locations') || '[]')
+      setLocations(persistedLocations)
+      
+      // Calculate stats from persisted data
+      const stats: LocationStats = {
+        total_locations: persistedLocations.length,
+        active_locations: persistedLocations.filter((l: RestaurantLocation) => l.status === 'active').length,
+        total_customers: persistedLocations.reduce((sum: number, l: RestaurantLocation) => sum + l.customers, 0),
+        total_revenue: persistedLocations.reduce((sum: number, l: RestaurantLocation) => sum + l.monthly_revenue, 0),
+        total_stamps: persistedLocations.reduce((sum: number, l: RestaurantLocation) => sum + l.stamps_issued, 0),
+        total_rewards: persistedLocations.reduce((sum: number, l: RestaurantLocation) => sum + l.rewards_redeemed, 0),
+        monthly_growth: 12.5,
+        top_performing_locations: persistedLocations
+          .sort((a: RestaurantLocation, b: RestaurantLocation) => b.monthly_revenue - a.monthly_revenue)
+          .slice(0, 5)
+          .map((l: RestaurantLocation) => ({
+            location_name: l.name,
+            revenue: l.monthly_revenue,
+            growth_rate: Math.random() * 20 - 5, // Random growth rate for demo
+            customer_count: l.customers,
+            stamps_issued: l.stamps_issued
+          })),
         recent_activity: []
       }
-
-      // Clean location data - ready for real data
-      const cleanLocations: RestaurantLocation[] = []
       
-      setLocationStats(cleanStats)
-      setLocations(cleanLocations)
+      setLocationStats(stats)
     } catch (error) {
       console.error('Error loading location data:', error)
-      toast({
-        title: "Error",
-        description: "Failed to load location data",
-        variant: "destructive"
-      })
     } finally {
       setLoading(false)
     }
@@ -261,6 +276,11 @@ export default function GallettiHQDashboard() {
         updated_at: new Date().toISOString()
       }
       
+      // Save to localStorage for persistence
+      const existingLocations = JSON.parse(localStorage.getItem('galletti_locations') || '[]')
+      const updatedLocations = [...existingLocations, location]
+      localStorage.setItem('galletti_locations', JSON.stringify(updatedLocations))
+      
       setLocations(prev => [...prev, location])
       setShowAddLocationDialog(false)
       setNewLocation({
@@ -276,7 +296,7 @@ export default function GallettiHQDashboard() {
       
       toast({
         title: "Success",
-        description: "New location added successfully"
+        description: "New location added successfully (demo data persisted)"
       })
     } catch (error) {
       toast({
@@ -503,833 +523,893 @@ export default function GallettiHQDashboard() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Location Overview Stats */}
-      {locationStats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Locations</CardTitle>
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{locationStats.total_locations}</div>
-              <p className="text-xs text-muted-foreground">
-                {locationStats.active_locations} active
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatNumber(locationStats.total_customers)}</div>
-              <p className="text-xs text-muted-foreground">
-                Across all locations
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(locationStats.total_revenue)}</div>
-              <p className="text-xs text-muted-foreground">
-                +{locationStats.monthly_growth}% from last month
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Loyalty Program</CardTitle>
-              <Award className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatNumber(locationStats.total_stamps)}</div>
-              <p className="text-xs text-muted-foreground">
-                {formatNumber(locationStats.total_rewards)} rewards redeemed
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      <Tabs defaultValue="locations" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
-          {tabs.map((tab) => (
-            <TabsTrigger key={tab.id} value={tab.id} onClick={() => setActiveTab(tab.id)}>
-              <tab.icon className="w-4 h-4 mr-2" />
-              {tab.label}
-            </TabsTrigger>
-          ))}
-          <TabsTrigger value="settings">
-            <Settings className="w-4 h-4 mr-2" />
-            Settings
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="locations" className="space-y-6">
+    <div className="min-h-screen bg-gray-50">
+      {/* Dashboard Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold">Location Management</h3>
-              <p className="text-sm text-gray-600">Manage all restaurant locations</p>
+              <h1 className="text-2xl font-bold text-gray-900">Galletti Foods HQ</h1>
+              <p className="text-sm text-gray-600">Restaurant chain management dashboard</p>
             </div>
-            <Dialog open={showAddLocationDialog} onOpenChange={setShowAddLocationDialog}>
-              <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Location
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Add New Location</DialogTitle>
-                  <DialogDescription>
-                    Add a new restaurant location to your network
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="name">Location Name *</Label>
-                    <Input
-                      id="name"
-                      value={newLocation.name}
-                      onChange={(e) => setNewLocation(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="e.g., Downtown Location"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="address">Address *</Label>
-                    <Input
-                      id="address"
-                      value={newLocation.address}
-                      onChange={(e) => setNewLocation(prev => ({ ...prev, address: e.target.value }))}
-                      placeholder="Street address"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label htmlFor="city">City *</Label>
-                      <Input
-                        id="city"
-                        value={newLocation.city}
-                        onChange={(e) => setNewLocation(prev => ({ ...prev, city: e.target.value }))}
-                        placeholder="City"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="state">State</Label>
-                      <Input
-                        id="state"
-                        value={newLocation.state}
-                        onChange={(e) => setNewLocation(prev => ({ ...prev, state: e.target.value }))}
-                        placeholder="State"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="zip">ZIP Code</Label>
-                    <Input
-                      id="zip"
-                      value={newLocation.zip_code}
-                      onChange={(e) => setNewLocation(prev => ({ ...prev, zip_code: e.target.value }))}
-                      placeholder="ZIP Code"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input
-                      id="phone"
-                      value={newLocation.phone}
-                      onChange={(e) => setNewLocation(prev => ({ ...prev, phone: e.target.value }))}
-                      placeholder="(555) 123-4567"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="manager_name">Manager Name</Label>
-                    <Input
-                      id="manager_name"
-                      value={newLocation.manager_name}
-                      onChange={(e) => setNewLocation(prev => ({ ...prev, manager_name: e.target.value }))}
-                      placeholder="Manager name"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="manager_email">Manager Email</Label>
-                    <Input
-                      id="manager_email"
-                      type="email"
-                      value={newLocation.manager_email}
-                      onChange={(e) => setNewLocation(prev => ({ ...prev, manager_email: e.target.value }))}
-                      placeholder="manager@email.com"
-                    />
-                  </div>
-                  <div className="flex gap-2 pt-4">
-                    <Button onClick={handleAddLocation} disabled={loading} className="flex-1">
-                      {loading ? 'Adding...' : 'Add Location'}
-                    </Button>
-                    <Button variant="outline" onClick={() => setShowAddLocationDialog(false)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          {/* Filters */}
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Search locations..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-900">Multi-Location Management</p>
+                <p className="text-xs text-gray-500">Tier 2 Access</p>
+              </div>
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <Building2 className="w-5 h-5 text-white" />
               </div>
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
+        </div>
+      </div>
 
-          {/* Locations Grid */}
-          <div className="grid gap-6">
-            {filteredLocations.map((location) => (
-              <Card key={location.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div 
-                      className="flex items-center gap-3 cursor-pointer flex-1"
-                      onClick={() => handleViewLocationDashboard(location)}
-                    >
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                        <MapPin className="w-6 h-6 text-white" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-lg flex items-center gap-2">
-                          {location.name}
-                          <ExternalLink className="w-4 h-4 text-gray-400" />
-                        </CardTitle>
-                        <CardDescription className="flex items-center gap-2">
-                          <span>{location.address}, {location.city}, {location.state}</span>
-                          {getStatusBadge(location.status)}
-                        </CardDescription>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm">
-                        <Edit className="w-4 h-4 mr-1" />
-                        Edit
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleManageLocation(location)}
-                        disabled={loading}
-                      >
-                        <Settings className="w-4 h-4 mr-1" />
-                        Manage
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-600">{formatNumber(location.customers)}</div>
-                      <p className="text-xs text-gray-500">Customers</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-green-600">{formatCurrency(location.monthly_revenue)}</div>
-                      <p className="text-xs text-gray-500">Monthly Revenue</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-purple-600">{formatNumber(location.stamps_issued)}</div>
-                      <p className="text-xs text-gray-500">Stamps Issued</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-orange-600">{formatNumber(location.rewards_redeemed)}</div>
-                      <p className="text-xs text-gray-500">Rewards Redeemed</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-sm font-medium text-gray-600">{location.manager_name}</div>
-                      <p className="text-xs text-gray-500">Manager</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="staff" className="space-y-6">
-          <StaffManager />
-        </TabsContent>
-
-        <TabsContent value="customers" className="space-y-6">
-          <CustomerManager clientId="galletti-client-id" />
-        </TabsContent>
-
-        <TabsContent value="loyalty" className="space-y-6">
-          <LoyaltyManager clientId="galletti-foods" />
-        </TabsContent>
-
-        <TabsContent value="analytics" className="space-y-6">
-          <AnalyticsManager clientId="galletti-foods" />
-        </TabsContent>
-
-        <TabsContent value="export" className="space-y-6">
-          <DataExportManager />
-        </TabsContent>
-
-        <TabsContent value="notifications" className="space-y-6">
-          <NotificationCampaignsManager clientId="galletti-client-id" />
-        </TabsContent>
-
-        <TabsContent value="overview" className="space-y-6">
-          <div>
-            <h3 className="text-lg font-semibold">Business Overview</h3>
-            <p className="text-sm text-gray-600">Key metrics and insights for your restaurant network</p>
-          </div>
-
-          {locationStats && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Customer Growth</CardTitle>
-                  <CardDescription>Total customers across all locations</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-blue-600">{formatNumber(locationStats.total_customers)}</div>
-                  <p className="text-sm text-green-600 mt-2">+{locationStats.monthly_growth}% this month</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Revenue Performance</CardTitle>
-                  <CardDescription>Monthly revenue across network</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-green-600">{formatCurrency(locationStats.total_revenue)}</div>
-                  <p className="text-sm text-gray-600 mt-2">Average per location: {formatCurrency(locationStats.total_revenue / locationStats.active_locations)}</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Loyalty Engagement</CardTitle>
-                  <CardDescription>Stamps and rewards activity</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-purple-600">{formatNumber(locationStats.total_stamps)}</div>
-                  <p className="text-sm text-gray-600 mt-2">{formatNumber(locationStats.total_rewards)} rewards redeemed</p>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="settings" className="space-y-6">
-          <div>
-            <h4 className="text-lg font-semibold">Corporate Settings</h4>
-            <p className="text-sm text-gray-600">Manage brand-wide settings and platform configuration</p>
-          </div>
-
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Brand Configuration</CardTitle>
+      {/* Main Content */}
+      <div className="p-6 space-y-6">
+        {/* Location Overview Stats */}
+        {locationStats && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card className="border-0 shadow-sm hover:shadow-md transition-shadow duration-200">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">Total Locations</CardTitle>
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Building2 className="h-4 w-4 text-blue-600" />
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Company Name</Label>
-                  <Input 
-                    value="Galletti Foods"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label>Brand Logo URL</Label>
-                  <Input 
-                    placeholder="https://example.com/logo.png"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label>Support Email</Label>
-                  <Input 
-                    type="email"
-                    value="support@galletti.com"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label>Website URL</Label>
-                  <Input 
-                    value="https://galletti.com"
-                    className="mt-1"
-                  />
-                </div>
+              <CardContent>
+                <div className="text-2xl font-bold text-gray-900">{locationStats.total_locations}</div>
+                <p className="text-xs text-green-600 mt-1">
+                  {locationStats.active_locations} active
+                </p>
               </CardContent>
             </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Global Loyalty Defaults</CardTitle>
-                <CardDescription>Default settings applied to new locations</CardDescription>
+            
+            <Card className="border-0 shadow-sm hover:shadow-md transition-shadow duration-200">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">Total Customers</CardTitle>
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                  <Users className="h-4 w-4 text-green-600" />
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Default Stamps per Dollar</Label>
-                    <Input 
-                      type="number" 
-                      value="1"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label>Default Stamps for Reward</Label>
-                    <Input 
-                      type="number" 
-                      value="10"
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label>Default Reward Value ($)</Label>
-                  <Input 
-                    type="number" 
-                    step="0.01"
-                    value="15.00"
-                    className="mt-1"
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label>Enable loyalty program for new locations</Label>
-                  <Switch checked={true} />
-                </div>
+              <CardContent>
+                <div className="text-2xl font-bold text-gray-900">{formatNumber(locationStats.total_customers)}</div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Across all locations
+                </p>
               </CardContent>
             </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Platform Settings</CardTitle>
+            
+            <Card className="border-0 shadow-sm hover:shadow-md transition-shadow duration-200">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">Monthly Revenue</CardTitle>
+                <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                  <DollarSign className="h-4 w-4 text-emerald-600" />
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label>Enable customer notifications</Label>
-                  <Switch checked={true} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label>Allow location-specific campaigns</Label>
-                  <Switch checked={true} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label>Enable data export for locations</Label>
-                  <Switch checked={false} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label>Require HQ approval for new staff</Label>
-                  <Switch checked={false} />
-                </div>
+              <CardContent>
+                <div className="text-2xl font-bold text-gray-900">{formatCurrency(locationStats.total_revenue)}</div>
+                <p className="text-xs text-green-600 mt-1">
+                  +{locationStats.monthly_growth}% from last month
+                </p>
               </CardContent>
             </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Subscription & Billing</CardTitle>
+            
+            <Card className="border-0 shadow-sm hover:shadow-md transition-shadow duration-200">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">Loyalty Program</CardTitle>
+                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <Award className="h-4 w-4 text-purple-600" />
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Current Plan</Label>
-                    <Input 
-                      value="Enterprise"
-                      disabled
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label>Billing Cycle</Label>
-                    <Input 
-                      value="Annual"
-                      disabled
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label>Next Billing Date</Label>
-                  <Input 
-                    value="2024-12-01"
-                    disabled
-                    className="mt-1"
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label>Auto-renewal enabled</Label>
-                  <Switch checked={true} />
-                </div>
+              <CardContent>
+                <div className="text-2xl font-bold text-gray-900">{formatNumber(locationStats.total_stamps)}</div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {formatNumber(locationStats.total_rewards)} rewards redeemed
+                </p>
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
-      </Tabs>
+        )}
 
-      {/* Location Management Dialog */}
-      <Dialog open={showManageLocationDialog} onOpenChange={setShowManageLocationDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Settings className="w-5 h-5" />
-              Manage {managingLocation?.name}
-            </DialogTitle>
-            <DialogDescription>
-              Manage staff access, permissions, and location settings
-            </DialogDescription>
-          </DialogHeader>
-
-          <Tabs defaultValue="staff" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="staff">
-                <Users className="w-4 h-4 mr-2" />
-                Staff & Access
-              </TabsTrigger>
-              <TabsTrigger value="settings">
-                <Settings className="w-4 h-4 mr-2" />
-                Location Settings
-              </TabsTrigger>
-              <TabsTrigger value="hours">
-                <Clock className="w-4 h-4 mr-2" />
-                Operating Hours
+        <Tabs defaultValue="locations" className="space-y-6">
+          <div className="border-b border-gray-200">
+            <TabsList className="flex overflow-x-auto scrollbar-hide space-x-1 px-1 py-1 bg-transparent h-auto">
+              {tabs.map((tab) => (
+                <TabsTrigger 
+                  key={tab.id} 
+                  value={tab.id} 
+                  onClick={() => setActiveTab(tab.id)}
+                  className="flex items-center gap-2 whitespace-nowrap px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 hover:bg-gray-100 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border-blue-200 min-w-fit"
+                >
+                  <tab.icon className="w-4 h-4" />
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+              <TabsTrigger 
+                value="settings"
+                className="flex items-center gap-2 whitespace-nowrap px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 hover:bg-gray-100 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border-blue-200 min-w-fit"
+              >
+                <Settings className="w-4 h-4" />
+                Settings
               </TabsTrigger>
             </TabsList>
+          </div>
 
-            <TabsContent value="staff" className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-lg font-semibold">Staff Management</h4>
-                  <p className="text-sm text-gray-600">Manage who can access this location's POS system</p>
+          <TabsContent value="locations" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">Location Management</h3>
+                <p className="text-sm text-gray-600">Manage all restaurant locations</p>
+              </div>
+              <Dialog open={showAddLocationDialog} onOpenChange={setShowAddLocationDialog}>
+                <DialogTrigger asChild>
+                  <Button className="bg-blue-600 hover:bg-blue-700">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Location
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md bg-white text-gray-900">
+                  <DialogHeader>
+                    <DialogTitle className="text-gray-900">Add New Location</DialogTitle>
+                    <DialogDescription className="text-gray-600">
+                      Add a new restaurant location to your network
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="name" className="text-gray-700">Location Name *</Label>
+                      <Input
+                        id="name"
+                        value={newLocation.name}
+                        onChange={(e) => setNewLocation(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="e.g., Downtown Location"
+                        className="bg-white border-gray-300 text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="address" className="text-gray-700">Address *</Label>
+                      <Input
+                        id="address"
+                        value={newLocation.address}
+                        onChange={(e) => setNewLocation(prev => ({ ...prev, address: e.target.value }))}
+                        placeholder="Street address"
+                        className="bg-white border-gray-300 text-gray-900"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label htmlFor="city" className="text-gray-700">City *</Label>
+                        <Input
+                          id="city"
+                          value={newLocation.city}
+                          onChange={(e) => setNewLocation(prev => ({ ...prev, city: e.target.value }))}
+                          placeholder="City"
+                          className="bg-white border-gray-300 text-gray-900"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="state" className="text-gray-700">State</Label>
+                        <Input
+                          id="state"
+                          value={newLocation.state}
+                          onChange={(e) => setNewLocation(prev => ({ ...prev, state: e.target.value }))}
+                          placeholder="State"
+                          className="bg-white border-gray-300 text-gray-900"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="zip" className="text-gray-700">ZIP Code</Label>
+                      <Input
+                        id="zip"
+                        value={newLocation.zip_code}
+                        onChange={(e) => setNewLocation(prev => ({ ...prev, zip_code: e.target.value }))}
+                        placeholder="ZIP Code"
+                        className="bg-white border-gray-300 text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="phone" className="text-gray-700">Phone</Label>
+                      <Input
+                        id="phone"
+                        value={newLocation.phone}
+                        onChange={(e) => setNewLocation(prev => ({ ...prev, phone: e.target.value }))}
+                        placeholder="(555) 123-4567"
+                        className="bg-white border-gray-300 text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="manager_name" className="text-gray-700">Manager Name</Label>
+                      <Input
+                        id="manager_name"
+                        value={newLocation.manager_name}
+                        onChange={(e) => setNewLocation(prev => ({ ...prev, manager_name: e.target.value }))}
+                        placeholder="Manager name"
+                        className="bg-white border-gray-300 text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="manager_email" className="text-gray-700">Manager Email</Label>
+                      <Input
+                        id="manager_email"
+                        type="email"
+                        value={newLocation.manager_email}
+                        onChange={(e) => setNewLocation(prev => ({ ...prev, manager_email: e.target.value }))}
+                        placeholder="manager@email.com"
+                        className="bg-white border-gray-300 text-gray-900"
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-4">
+                      <Button onClick={handleAddLocation} disabled={loading} className="flex-1">
+                        {loading ? 'Adding...' : 'Add Location'}
+                      </Button>
+                      <Button variant="outline" onClick={() => setShowAddLocationDialog(false)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {/* Filters */}
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="Search locations..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
                 </div>
-                <Dialog open={showAddStaffDialog} onOpenChange={setShowAddStaffDialog}>
-                  <DialogTrigger asChild>
-                    <Button size="sm">
-                      <UserPlus className="w-4 h-4 mr-2" />
-                      Add Staff
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>Add Staff Member</DialogTitle>
-                      <DialogDescription>
-                        Add a new staff member to {managingLocation?.name}
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="staff_name">Full Name *</Label>
-                        <Input
-                          id="staff_name"
-                          value={newStaff.name}
-                          onChange={(e) => setNewStaff(prev => ({ ...prev, name: e.target.value }))}
-                          placeholder="John Doe"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="staff_email">Email *</Label>
-                        <Input
-                          id="staff_email"
-                          type="email"
-                          value={newStaff.email}
-                          onChange={(e) => setNewStaff(prev => ({ ...prev, email: e.target.value }))}
-                          placeholder="john.doe@galletti.com"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="staff_role">Role</Label>
-                        <Select value={newStaff.role} onValueChange={(value: 'manager' | 'cashier' | 'supervisor') => setNewStaff(prev => ({ ...prev, role: value }))}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="cashier">Cashier</SelectItem>
-                            <SelectItem value="supervisor">Supervisor</SelectItem>
-                            <SelectItem value="manager">Manager</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-3">
-                        <Label>Permissions</Label>
-                        <div className="space-y-2">
-                          {Object.entries(newStaff.permissions).map(([key, value]) => (
-                            <div key={key} className="flex items-center justify-between">
-                              <Label htmlFor={key} className="text-sm">
-                                {key.replace(/_/g, ' ').replace(/^can /, '').replace(/\b\w/g, l => l.toUpperCase())}
-                              </Label>
-                              <Switch
-                                id={key}
-                                checked={value}
-                                onCheckedChange={(checked) => 
-                                  setNewStaff(prev => ({
-                                    ...prev,
-                                    permissions: { ...prev.permissions, [key]: checked }
-                                  }))
-                                }
-                              />
-                            </div>
-                          ))}
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Locations Grid */}
+            <div className="grid gap-6">
+              {filteredLocations.map((location) => (
+                <Card key={location.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div 
+                        className="flex items-center gap-3 cursor-pointer flex-1"
+                        onClick={() => handleViewLocationDashboard(location)}
+                      >
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                          <MapPin className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            {location.name}
+                            <ExternalLink className="w-4 h-4 text-gray-400" />
+                          </CardTitle>
+                          <CardDescription className="flex items-center gap-2">
+                            <span>{location.address}, {location.city}, {location.state}</span>
+                            {getStatusBadge(location.status)}
+                          </CardDescription>
                         </div>
                       </div>
-                      <div className="flex gap-2 pt-4">
-                        <Button onClick={handleAddStaff} disabled={loading} className="flex-1">
-                          {loading ? 'Adding...' : 'Add Staff'}
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm">
+                          <Edit className="w-4 h-4 mr-1" />
+                          Edit
                         </Button>
-                        <Button variant="outline" onClick={() => setShowAddStaffDialog(false)}>
-                          Cancel
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleManageLocation(location)}
+                          disabled={loading}
+                        >
+                          <Settings className="w-4 h-4 mr-1" />
+                          Manage
                         </Button>
                       </div>
                     </div>
-                  </DialogContent>
-                </Dialog>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-600">{formatNumber(location.customers)}</div>
+                        <p className="text-xs text-gray-500">Customers</p>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">{formatCurrency(location.monthly_revenue)}</div>
+                        <p className="text-xs text-gray-500">Monthly Revenue</p>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-purple-600">{formatNumber(location.stamps_issued)}</div>
+                        <p className="text-xs text-gray-500">Stamps Issued</p>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-orange-600">{formatNumber(location.rewards_redeemed)}</div>
+                        <p className="text-xs text-gray-500">Rewards Redeemed</p>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm font-medium text-gray-600">{location.manager_name}</div>
+                        <p className="text-xs text-gray-500">Manager</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="staff" className="space-y-6">
+            <StaffManager />
+          </TabsContent>
+
+          <TabsContent value="customers" className="space-y-6">
+            <CustomerManager clientId="galletti-client-id" />
+          </TabsContent>
+
+          <TabsContent value="loyalty" className="space-y-6">
+            <LoyaltyManager clientId="galletti-foods" />
+          </TabsContent>
+
+          <TabsContent value="analytics" className="space-y-6">
+            <AnalyticsManager clientId="galletti-foods" />
+          </TabsContent>
+
+          <TabsContent value="export" className="space-y-6">
+            <DataExportManager />
+          </TabsContent>
+
+          <TabsContent value="notifications" className="space-y-6">
+            <NotificationCampaignsManager clientId="galletti-client-id" />
+          </TabsContent>
+
+          <TabsContent value="overview" className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold">Business Overview</h3>
+              <p className="text-sm text-gray-600">Key metrics and insights for your restaurant network</p>
+            </div>
+
+            {locationStats && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Customer Growth</CardTitle>
+                    <CardDescription>Total customers across all locations</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-blue-600">{formatNumber(locationStats.total_customers)}</div>
+                    <p className="text-sm text-green-600 mt-2">+{locationStats.monthly_growth}% this month</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Revenue Performance</CardTitle>
+                    <CardDescription>Monthly revenue across network</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-green-600">{formatCurrency(locationStats.total_revenue)}</div>
+                    <p className="text-sm text-gray-600 mt-2">Average per location: {formatCurrency(locationStats.total_revenue / locationStats.active_locations)}</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Loyalty Engagement</CardTitle>
+                    <CardDescription>Stamps and rewards activity</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-purple-600">{formatNumber(locationStats.total_stamps)}</div>
+                    <p className="text-sm text-gray-600 mt-2">{formatNumber(locationStats.total_rewards)} rewards redeemed</p>
+                  </CardContent>
+                </Card>
               </div>
+            )}
+          </TabsContent>
 
-              <div className="space-y-4">
-                {locationStaff.map((staff) => (
-                  <Card key={staff.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                            <UserCheck className="w-5 h-5 text-gray-600" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium">{staff.name}</p>
-                              {getRoleBadge(staff.role)}
-                            </div>
-                            <p className="text-sm text-gray-600">{staff.email}</p>
-                            <p className="text-xs text-gray-500">
-                              Last login: {staff.last_login ? new Date(staff.last_login).toLocaleString() : 'Never'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="outline" size="sm">
-                            <Key className="w-4 h-4 mr-1" />
-                            Permissions
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            <Edit className="w-4 h-4 mr-1" />
-                            Edit
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-                        {Object.entries(staff.permissions).map(([key, value]) => (
-                          <div key={key} className={`flex items-center gap-1 ${value ? 'text-green-600' : 'text-gray-400'}`}>
-                            <div className={`w-2 h-2 rounded-full ${value ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                            {key.replace(/_/g, ' ').replace(/^can /, '')}
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
+          <TabsContent value="settings" className="space-y-6">
+            <div>
+              <h4 className="text-lg font-semibold">Corporate Settings</h4>
+              <p className="text-sm text-gray-600">Manage brand-wide settings and platform configuration</p>
+            </div>
 
-            <TabsContent value="settings" className="space-y-4">
-              <div>
-                <h4 className="text-lg font-semibold">POS & Loyalty Settings</h4>
-                <p className="text-sm text-gray-600">Configure payment methods and loyalty program settings</p>
-              </div>
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Brand Configuration</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label>Company Name</Label>
+                    <Input 
+                      value={corporateSettings.companyName}
+                      onChange={(e) => setCorporateSettings(prev => ({ ...prev, companyName: e.target.value }))}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Brand Logo URL</Label>
+                    <Input 
+                      placeholder="https://example.com/logo.png"
+                      value={corporateSettings.logoUrl}
+                      onChange={(e) => setCorporateSettings(prev => ({ ...prev, logoUrl: e.target.value }))}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Support Email</Label>
+                    <Input 
+                      type="email"
+                      value={corporateSettings.supportEmail}
+                      onChange={(e) => setCorporateSettings(prev => ({ ...prev, supportEmail: e.target.value }))}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Website URL</Label>
+                    <Input 
+                      value={corporateSettings.websiteUrl}
+                      onChange={(e) => setCorporateSettings(prev => ({ ...prev, websiteUrl: e.target.value }))}
+                      className="mt-1"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
 
-              {locationSettings && (
-                <div className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Payment Methods</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <Label>Accept Cash Payments</Label>
-                        <Switch 
-                          checked={locationSettings.pos_settings.allow_cash_payments}
-                          onCheckedChange={(checked) => updatePOSSettings('allow_cash_payments', checked)}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Label>Accept Card Payments</Label>
-                        <Switch 
-                          checked={locationSettings.pos_settings.allow_card_payments}
-                          onCheckedChange={(checked) => updatePOSSettings('allow_card_payments', checked)}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Label>Accept Mobile Payments</Label>
-                        <Switch 
-                          checked={locationSettings.pos_settings.allow_mobile_payments}
-                          onCheckedChange={(checked) => updatePOSSettings('allow_mobile_payments', checked)}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Label>Require Manager Approval for Large Orders</Label>
-                        <Switch 
-                          checked={locationSettings.pos_settings.require_manager_approval}
-                          onCheckedChange={(checked) => updatePOSSettings('require_manager_approval', checked)}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Global Loyalty Defaults</CardTitle>
+                  <CardDescription>Default settings applied to new locations</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Default Stamps per Dollar</Label>
+                      <Input 
+                        type="number" 
+                        value={corporateSettings.defaultStampsPerDollar}
+                        onChange={(e) => setCorporateSettings(prev => ({ ...prev, defaultStampsPerDollar: parseInt(e.target.value) || 0 }))}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label>Default Stamps for Reward</Label>
+                      <Input 
+                        type="number" 
+                        value={corporateSettings.defaultStampsForReward}
+                        onChange={(e) => setCorporateSettings(prev => ({ ...prev, defaultStampsForReward: parseInt(e.target.value) || 0 }))}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Default Reward Value ($)</Label>
+                    <Input 
+                      type="number" 
+                      step="0.01"
+                      value={corporateSettings.defaultRewardValue}
+                      onChange={(e) => setCorporateSettings(prev => ({ ...prev, defaultRewardValue: parseFloat(e.target.value) || 0 }))}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label>Enable loyalty program for new locations</Label>
+                    <Switch checked={true} />
+                  </div>
+                </CardContent>
+              </Card>
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Loyalty Program</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Platform Settings</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label>Enable customer notifications</Label>
+                    <Switch checked={true} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label>Allow location-specific campaigns</Label>
+                    <Switch checked={true} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label>Enable data export for locations</Label>
+                    <Switch checked={false} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label>Require HQ approval for new staff</Label>
+                    <Switch checked={false} />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Subscription & Billing</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Current Plan</Label>
+                      <Input 
+                        value="Enterprise"
+                        readOnly
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label>Billing Cycle</Label>
+                      <Input 
+                        value="Annual"
+                        readOnly
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Next Billing Date</Label>
+                    <Input 
+                      value="2024-12-01"
+                      readOnly
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label>Auto-renewal enabled</Label>
+                    <Switch checked={true} />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Location Management Dialog */}
+        <Dialog open={showManageLocationDialog} onOpenChange={setShowManageLocationDialog}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white text-gray-900">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-gray-900">
+                <Settings className="w-5 h-5" />
+                Manage {managingLocation?.name}
+              </DialogTitle>
+              <DialogDescription className="text-gray-600">
+                Manage staff access, permissions, and location settings
+              </DialogDescription>
+            </DialogHeader>
+
+            <Tabs defaultValue="staff" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-3 bg-gray-100">
+                <TabsTrigger value="staff" className="text-gray-700 data-[state=active]:bg-white data-[state=active]:text-gray-900">
+                  <Users className="w-4 h-4 mr-2" />
+                  Staff & Access
+                </TabsTrigger>
+                <TabsTrigger value="settings" className="text-gray-700 data-[state=active]:bg-white data-[state=active]:text-gray-900">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Location Settings
+                </TabsTrigger>
+                <TabsTrigger value="hours" className="text-gray-700 data-[state=active]:bg-white data-[state=active]:text-gray-900">
+                  <Clock className="w-4 h-4 mr-2" />
+                  Operating Hours
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="staff" className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900">Staff Management</h4>
+                    <p className="text-sm text-gray-600">Manage who can access this location's POS system</p>
+                  </div>
+                  <Dialog open={showAddStaffDialog} onOpenChange={setShowAddStaffDialog}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        Add Staff
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md bg-white text-gray-900">
+                      <DialogHeader>
+                        <DialogTitle className="text-gray-900">Add Staff Member</DialogTitle>
+                        <DialogDescription className="text-gray-600">
+                          Add a new staff member to {managingLocation?.name}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
                         <div>
-                          <Label>Stamps per Dollar</Label>
-                          <Input 
-                            type="number" 
-                            value={locationSettings.loyalty_settings.stamps_per_dollar}
-                            onChange={(e) => updateLoyaltySettings('stamps_per_dollar', parseFloat(e.target.value) || 0)}
-                            className="mt-1"
+                          <Label htmlFor="staff_name" className="text-gray-700">Full Name *</Label>
+                          <Input
+                            id="staff_name"
+                            value={newStaff.name}
+                            onChange={(e) => setNewStaff(prev => ({ ...prev, name: e.target.value }))}
+                            placeholder="John Doe"
+                            className="bg-white border-gray-300 text-gray-900"
                           />
                         </div>
                         <div>
-                          <Label>Stamps for Reward</Label>
-                          <Input 
-                            type="number" 
-                            value={locationSettings.loyalty_settings.stamps_for_reward}
-                            onChange={(e) => updateLoyaltySettings('stamps_for_reward', parseInt(e.target.value) || 0)}
-                            className="mt-1"
+                          <Label htmlFor="staff_email" className="text-gray-700">Email *</Label>
+                          <Input
+                            id="staff_email"
+                            type="email"
+                            value={newStaff.email}
+                            onChange={(e) => setNewStaff(prev => ({ ...prev, email: e.target.value }))}
+                            placeholder="john.doe@galletti.com"
+                            className="bg-white border-gray-300 text-gray-900"
                           />
                         </div>
+                        <div>
+                          <Label htmlFor="staff_role" className="text-gray-700">Role</Label>
+                          <Select value={newStaff.role} onValueChange={(value: 'manager' | 'cashier' | 'supervisor') => setNewStaff(prev => ({ ...prev, role: value }))}>
+                            <SelectTrigger className="bg-white border-gray-300 text-gray-900">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white border-gray-300">
+                              <SelectItem value="cashier" className="text-gray-900">Cashier</SelectItem>
+                              <SelectItem value="supervisor" className="text-gray-900">Supervisor</SelectItem>
+                              <SelectItem value="manager" className="text-gray-900">Manager</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-3">
+                          <Label className="text-gray-700">Permissions</Label>
+                          <div className="space-y-2">
+                            {Object.entries(newStaff.permissions).map(([key, value]) => (
+                              <div key={key} className="flex items-center justify-between">
+                                <Label htmlFor={key} className="text-sm text-gray-700">
+                                  {key.replace(/_/g, ' ').replace(/^can /, '').replace(/\b\w/g, l => l.toUpperCase())}
+                                </Label>
+                                <Switch
+                                  id={key}
+                                  checked={value}
+                                  onCheckedChange={(checked) => 
+                                    setNewStaff(prev => ({
+                                      ...prev,
+                                      permissions: { ...prev.permissions, [key]: checked }
+                                    }))
+                                  }
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 pt-4">
+                          <Button onClick={handleAddStaff} disabled={loading} className="flex-1">
+                            {loading ? 'Adding...' : 'Add Staff'}
+                          </Button>
+                          <Button variant="outline" onClick={() => setShowAddStaffDialog(false)}>
+                            Cancel
+                          </Button>
+                        </div>
                       </div>
-                      <div>
-                        <Label>Reward Value ($)</Label>
-                        <Input 
-                          type="number" 
-                          step="0.01"
-                          value={locationSettings.loyalty_settings.reward_value}
-                          onChange={(e) => updateLoyaltySettings('reward_value', parseFloat(e.target.value) || 0)}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Label>Auto-redeem rewards when available</Label>
-                        <Switch 
-                          checked={locationSettings.loyalty_settings.auto_redeem}
-                          onCheckedChange={(checked) => updateLoyaltySettings('auto_redeem', checked)}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Receipt Settings</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div>
-                        <Label>Receipt Footer Text</Label>
-                        <Textarea 
-                          value={locationSettings.pos_settings.receipt_footer_text}
-                          onChange={(e) => updatePOSSettings('receipt_footer_text', e.target.value)}
-                          className="mt-1"
-                          placeholder="Thank you message or social media handles"
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
+                    </DialogContent>
+                  </Dialog>
                 </div>
-              )}
-            </TabsContent>
 
-            <TabsContent value="hours" className="space-y-4">
-              <div>
-                <h4 className="text-lg font-semibold">Operating Hours</h4>
-                <p className="text-sm text-gray-600">Set the operating hours for this location</p>
-              </div>
-
-              {locationSettings && (
                 <div className="space-y-4">
-                  {Object.entries(locationSettings.operating_hours).map(([day, hours]) => (
-                    <Card key={day}>
+                  {locationStaff.map((staff) => (
+                    <Card key={staff.id}>
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="w-20">
-                              <Label className="font-medium capitalize">{day}</Label>
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                              <UserCheck className="w-5 h-5 text-gray-600" />
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Switch 
-                                checked={!hours.closed}
-                                onCheckedChange={(checked) => updateOperatingHours(day, 'closed', !checked)}
-                              />
-                              <span className="text-sm text-gray-600">
-                                {hours.closed ? 'Closed' : 'Open'}
-                              </span>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium">{staff.name}</p>
+                                {getRoleBadge(staff.role)}
+                              </div>
+                              <p className="text-sm text-gray-600">{staff.email}</p>
+                              <p className="text-xs text-gray-500">
+                                Last login: {staff.last_login ? new Date(staff.last_login).toLocaleString() : 'Never'}
+                              </p>
                             </div>
                           </div>
-                          {!hours.closed && (
-                            <div className="flex items-center gap-2">
-                              <Input 
-                                type="time" 
-                                value={hours.open}
-                                onChange={(e) => updateOperatingHours(day, 'open', e.target.value)}
-                                className="w-32"
-                              />
-                              <span className="text-gray-500">to</span>
-                              <Input 
-                                type="time" 
-                                value={hours.close}
-                                onChange={(e) => updateOperatingHours(day, 'close', e.target.value)}
-                                className="w-32"
-                              />
+                          <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm">
+                              <Key className="w-4 h-4 mr-1" />
+                              Permissions
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              <Edit className="w-4 h-4 mr-1" />
+                              Edit
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                          {Object.entries(staff.permissions).map(([key, value]) => (
+                            <div key={key} className={`flex items-center gap-1 ${value ? 'text-green-600' : 'text-gray-400'}`}>
+                              <div className={`w-2 h-2 rounded-full ${value ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                              {key.replace(/_/g, ' ').replace(/^can /, '')}
                             </div>
-                          )}
+                          ))}
                         </div>
                       </CardContent>
                     </Card>
                   ))}
                 </div>
-              )}
-            </TabsContent>
-          </Tabs>
+              </TabsContent>
 
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button variant="outline" onClick={() => setShowManageLocationDialog(false)}>
-              Cancel
-            </Button>
-            <Button>
-              Save Changes
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+              <TabsContent value="settings" className="space-y-4">
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-900">POS & Loyalty Settings</h4>
+                  <p className="text-sm text-gray-600">Configure payment methods and loyalty program settings</p>
+                </div>
+
+                {locationSettings && (
+                  <div className="space-y-6">
+                    <Card className="bg-white border-gray-200">
+                      <CardHeader>
+                        <CardTitle className="text-base text-gray-900">Payment Methods</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-gray-700">Accept Cash Payments</Label>
+                          <Switch 
+                            checked={locationSettings.pos_settings.allow_cash_payments}
+                            onCheckedChange={(checked) => updatePOSSettings('allow_cash_payments', checked)}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Label className="text-gray-700">Accept Card Payments</Label>
+                          <Switch 
+                            checked={locationSettings.pos_settings.allow_card_payments}
+                            onCheckedChange={(checked) => updatePOSSettings('allow_card_payments', checked)}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Label className="text-gray-700">Accept Mobile Payments</Label>
+                          <Switch 
+                            checked={locationSettings.pos_settings.allow_mobile_payments}
+                            onCheckedChange={(checked) => updatePOSSettings('allow_mobile_payments', checked)}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Label className="text-gray-700">Require Manager Approval for Large Orders</Label>
+                          <Switch 
+                            checked={locationSettings.pos_settings.require_manager_approval}
+                            onCheckedChange={(checked) => updatePOSSettings('require_manager_approval', checked)}
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-white border-gray-200">
+                      <CardHeader>
+                        <CardTitle className="text-base text-gray-900">Loyalty Program</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-gray-700">Stamps per Dollar</Label>
+                            <Input 
+                              type="number" 
+                              value={locationSettings.loyalty_settings.stamps_per_dollar}
+                              onChange={(e) => updateLoyaltySettings('stamps_per_dollar', parseFloat(e.target.value) || 0)}
+                              className="mt-1 bg-white border-gray-300 text-gray-900"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-gray-700">Stamps for Reward</Label>
+                            <Input 
+                              type="number" 
+                              value={locationSettings.loyalty_settings.stamps_for_reward}
+                              onChange={(e) => updateLoyaltySettings('stamps_for_reward', parseInt(e.target.value) || 0)}
+                              className="mt-1 bg-white border-gray-300 text-gray-900"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-gray-700">Reward Value ($)</Label>
+                          <Input 
+                            type="number" 
+                            step="0.01"
+                            value={locationSettings.loyalty_settings.reward_value}
+                            onChange={(e) => updateLoyaltySettings('reward_value', parseFloat(e.target.value) || 0)}
+                            className="mt-1 bg-white border-gray-300 text-gray-900"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Label className="text-gray-700">Auto-redeem rewards when available</Label>
+                          <Switch 
+                            checked={locationSettings.loyalty_settings.auto_redeem}
+                            onCheckedChange={(checked) => updateLoyaltySettings('auto_redeem', checked)}
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-white border-gray-200">
+                      <CardHeader>
+                        <CardTitle className="text-base text-gray-900">Receipt Settings</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div>
+                          <Label className="text-gray-700">Receipt Footer Text</Label>
+                          <Textarea 
+                            value={locationSettings.pos_settings.receipt_footer_text}
+                            onChange={(e) => updatePOSSettings('receipt_footer_text', e.target.value)}
+                            className="mt-1 bg-white border-gray-300 text-gray-900"
+                            placeholder="Thank you message or social media handles"
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="hours" className="space-y-4">
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-900">Operating Hours</h4>
+                  <p className="text-sm text-gray-600">Set the operating hours for this location</p>
+                </div>
+
+                {locationSettings && (
+                  <div className="space-y-4">
+                    {Object.entries(locationSettings.operating_hours).map(([day, hours]) => (
+                      <Card key={day} className="bg-white border-gray-200">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="w-20">
+                                <Label className="font-medium capitalize text-gray-700">{day}</Label>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Switch 
+                                  checked={!hours.closed}
+                                  onCheckedChange={(checked) => updateOperatingHours(day, 'closed', !checked)}
+                                />
+                                <span className="text-sm text-gray-600">
+                                  {hours.closed ? 'Closed' : 'Open'}
+                                </span>
+                              </div>
+                            </div>
+                            {!hours.closed && (
+                              <div className="flex items-center gap-2">
+                                <Input 
+                                  type="time" 
+                                  value={hours.open}
+                                  onChange={(e) => updateOperatingHours(day, 'open', e.target.value)}
+                                  className="w-32 bg-white border-gray-300 text-gray-900"
+                                />
+                                <span className="text-gray-500">to</span>
+                                <Input 
+                                  type="time" 
+                                  value={hours.close}
+                                  onChange={(e) => updateOperatingHours(day, 'close', e.target.value)}
+                                  className="w-32 bg-white border-gray-300 text-gray-900"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+
+            <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
+              <Button variant="outline" onClick={() => setShowManageLocationDialog(false)}>
+                Cancel
+              </Button>
+              <Button>
+                Save Changes
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   )
 } 

@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
+import { supabase } from '@/integrations/supabase/client'
 import { 
   Building2, 
   Users, 
@@ -43,7 +44,14 @@ import {
   Trash2,
   UserPlus,
   Mail,
-  LogOut
+  LogOut,
+  Target,
+  Award,
+  UserCheck,
+  Phone,
+  Key,
+  Download,
+  Send
 } from 'lucide-react'
 
 interface ClientData {
@@ -191,10 +199,28 @@ export default function ZerionPlatformDashboard({
       // Simulate loading client data
       await new Promise(resolve => setTimeout(resolve, 800))
       
-      // No mock data - ready for real client data
-      setClients([])
+      // Load persisted clients from localStorage with error handling
+      try {
+        const persistedClientsStr = localStorage.getItem('zerion_platform_clients')
+        const persistedClients = persistedClientsStr ? JSON.parse(persistedClientsStr) : []
+        
+        // Validate the data structure
+        if (Array.isArray(persistedClients)) {
+          setClients(persistedClients)
+        } else {
+          console.warn('Invalid client data format in localStorage, resetting to empty array')
+          setClients([])
+          localStorage.removeItem('zerion_platform_clients')
+        }
+      } catch (parseError) {
+        console.error('Error parsing clients from localStorage:', parseError)
+        setClients([])
+        // Clear corrupted data
+        localStorage.removeItem('zerion_platform_clients')
+      }
     } catch (error) {
       console.error('Error loading clients:', error)
+      setClients([]) // Ensure we always have a valid state
     }
   }
 
@@ -206,7 +232,7 @@ export default function ZerionPlatformDashboard({
       
       // Clean metrics with zero values - ready for real data
       const cleanMetrics: PlatformMetrics = {
-        totalClients: 0,
+        totalClients: clients.length || 0,
         totalRestaurants: 0,
         totalEndCustomers: 0,
         monthlyRevenue: 0,
@@ -234,6 +260,33 @@ export default function ZerionPlatformDashboard({
       setMetrics(cleanMetrics)
     } catch (error) {
       console.error('Error loading platform metrics:', error)
+      // Set fallback metrics to prevent black screen
+      const fallbackMetrics: PlatformMetrics = {
+        totalClients: clients.length || 0,
+        totalRestaurants: 0,
+        totalEndCustomers: 0,
+        monthlyRevenue: 0,
+        growthRate: 0,
+        previousMonthRevenue: 0,
+        platformHealth: {
+          uptime: 0,
+          lastUpdate: new Date().toISOString(),
+          status: 'critical',
+          activeConnections: 0,
+          responseTime: 0
+        },
+        recentActivity: [],
+        topClients: [],
+        systemStats: {
+          totalTransactions: 0,
+          totalStampsIssued: 0,
+          totalRewardsRedeemed: 0,
+          averageSessionTime: 0,
+          errorRate: 0,
+          apiCalls: 0
+        }
+      }
+      setMetrics(fallbackMetrics)
     } finally {
       setLoading(false)
     }
@@ -251,42 +304,74 @@ export default function ZerionPlatformDashboard({
 
     setLoading(true)
     try {
+      // Simulate API call with realistic delay
       await new Promise(resolve => setTimeout(resolve, 1000))
       
       const client: ClientData = {
         id: Date.now().toString(),
-        ...newClient,
+        name: newClient.name,
         logo: '🏢',
+        plan: newClient.plan,
         restaurantCount: 0,
         locationCount: 0,
         customerCount: 0,
         monthlyRevenue: 0,
-        status: 'trial',
+        status: newClient.plan === 'trial' ? 'trial' : 'active',
         joinDate: new Date().toISOString(),
         lastActivity: new Date().toISOString(),
+        contactEmail: newClient.contactEmail,
+        contactPhone: newClient.contactPhone || '',
         growthRate: 0
       }
       
-      setClients(prev => [...prev, client])
-      setShowAddClientDialog(false)
-      setNewClient({
-        name: '',
-        contactEmail: '',
-        contactPhone: '',
-        plan: 'trial'
-      })
+      // Safely handle localStorage operations
+      try {
+        const existingClientsStr = localStorage.getItem('zerion_platform_clients')
+        const existingClients = existingClientsStr ? JSON.parse(existingClientsStr) : []
+        const updatedClients = [...existingClients, client]
+        localStorage.setItem('zerion_platform_clients', JSON.stringify(updatedClients))
+        
+        // Update state with new client
+        setClients(prev => [...prev, client])
+        
+        // Update metrics if they exist
+        if (metrics) {
+          setMetrics(prev => prev ? {
+            ...prev,
+            totalClients: prev.totalClients + 1
+          } : prev)
+        }
+        
+        // Reset form and close dialog
+        setNewClient({
+          name: '',
+          contactEmail: '',
+          contactPhone: '',
+          plan: 'trial'
+        })
+        setShowAddClientDialog(false)
 
-      toast({
-        title: "Success",
-        description: "New client added successfully"
-      })
-    } catch (error) {
+        toast({
+          title: "Success",
+          description: `${client.name} has been added successfully!`
+        })
+      } catch (storageError) {
+        console.error('Error saving to localStorage:', storageError)
+        toast({
+          title: "Warning",
+          description: "Client added but not persisted to storage",
+          variant: "destructive"
+        })
+      }
+    } catch (error: any) {
+      console.error('Error adding client:', error)
       toast({
         title: "Error",
-        description: "Failed to add client",
+        description: error?.message || "Failed to add client",
         variant: "destructive"
       })
     } finally {
+      // Always reset loading state
       setLoading(false)
     }
   }
@@ -408,6 +493,27 @@ export default function ZerionPlatformDashboard({
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading platform metrics...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Fallback for when metrics is null but loading is false (error state)
+  if (!metrics && !loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-yellow-600 mx-auto mb-4" />
+            <p className="text-gray-600 mb-4">Unable to load platform metrics</p>
+            <Button onClick={() => {
+              setLoading(true)
+              loadPlatformMetrics()
+              loadClients()
+            }}>
+              Retry
+            </Button>
+          </div>
         </div>
       </div>
     )
@@ -1193,60 +1299,63 @@ export default function ZerionPlatformDashboard({
                 <Plus className="h-6 w-6" />
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md bg-white">
               <DialogHeader>
-                <DialogTitle>Add New Client</DialogTitle>
-                <DialogDescription>
+                <DialogTitle className="text-gray-900">Add New Client</DialogTitle>
+                <DialogDescription className="text-gray-600">
                   Add a new restaurant chain to the platform
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="client_name">Restaurant Chain Name *</Label>
+                  <Label htmlFor="client_name" className="text-gray-700">Restaurant Chain Name *</Label>
                   <Input
                     id="client_name"
                     value={newClient.name}
                     onChange={(e) => setNewClient(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="e.g., Pizza Palace International"
+                    className="bg-white border-gray-300 text-gray-900"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="contact_email">Contact Email *</Label>
+                  <Label htmlFor="contact_email" className="text-gray-700">Contact Email *</Label>
                   <Input
                     id="contact_email"
                     type="email"
                     value={newClient.contactEmail}
                     onChange={(e) => setNewClient(prev => ({ ...prev, contactEmail: e.target.value }))}
                     placeholder="admin@restaurant.com"
+                    className="bg-white border-gray-300 text-gray-900"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="contact_phone">Contact Phone</Label>
+                  <Label htmlFor="contact_phone" className="text-gray-700">Contact Phone</Label>
                   <Input
                     id="contact_phone"
                     value={newClient.contactPhone}
                     onChange={(e) => setNewClient(prev => ({ ...prev, contactPhone: e.target.value }))}
                     placeholder="+1 (555) 123-4567"
+                    className="bg-white border-gray-300 text-gray-900"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="plan">Initial Plan</Label>
+                  <Label htmlFor="plan" className="text-gray-700">Initial Plan</Label>
                   <Select value={newClient.plan} onValueChange={(value: 'trial' | 'business' | 'enterprise') => setNewClient(prev => ({ ...prev, plan: value }))}>
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-white border-gray-300 text-gray-900">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="trial">Trial (30 days free)</SelectItem>
-                      <SelectItem value="business">Business ($99/month)</SelectItem>
-                      <SelectItem value="enterprise">Enterprise ($299/month)</SelectItem>
+                    <SelectContent className="bg-white border-gray-300">
+                      <SelectItem value="trial" className="text-gray-900">Trial (30 days free)</SelectItem>
+                      <SelectItem value="business" className="text-gray-900">Business ($99/month)</SelectItem>
+                      <SelectItem value="enterprise" className="text-gray-900">Enterprise ($299/month)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="flex gap-2 pt-4">
-                  <Button onClick={handleAddClient} disabled={loading} className="flex-1">
+                  <Button onClick={handleAddClient} disabled={loading} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
                     {loading ? 'Adding...' : 'Add Client'}
                   </Button>
-                  <Button variant="outline" onClick={() => setShowAddClientDialog(false)}>
+                  <Button variant="outline" onClick={() => setShowAddClientDialog(false)} className="bg-white border-gray-300 text-gray-700 hover:bg-gray-50">
                     Cancel
                   </Button>
                 </div>

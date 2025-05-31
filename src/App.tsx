@@ -19,25 +19,25 @@ function App() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
+  <QueryClientProvider client={queryClient}>
+        <AuthProvider>
         <Router>
           <div className="min-h-screen bg-gray-50">
-            <Routes>
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/" element={
-                <ProtectedRoute>
-                  <Index />
-                </ProtectedRoute>
-              } />
+          <Routes>
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/" element={
+              <ProtectedRoute>
+                <Index />
+              </ProtectedRoute>
+            } />
               <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+          </Routes>
           </div>
           <Toaster />
         </Router>
-      </AuthProvider>
-    </QueryClientProvider>
-  );
+        </AuthProvider>
+  </QueryClientProvider>
+);
 }
 
 export default App;

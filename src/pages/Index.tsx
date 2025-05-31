@@ -209,15 +209,15 @@ const Index = () => {
             <div className="dashboard-header-title">
               <div className="p-4 bg-sage-turquoise-100 rounded-2xl hover-glow">
                 <Crown className="w-10 h-10 text-sage-turquoise-600 icon-bounce" />
-              </div>
+                </div>
               <div className="space-y-2">
                 <h1 className="text-4xl lg:text-5xl font-editorial font-bold text-balance">ZerionCore Platform</h1>
                 <p className="text-muted-foreground text-xl leading-relaxed">Enterprise restaurant loyalty management</p>
               </div>
             </div>
             <div className="dashboard-header-actions slide-in-right">
-              <Button
-                variant="outline"
+              <Button 
+                variant="outline" 
                 effect="lift"
                 onClick={() => setShowPlatformSettings(true)}
                 className="space-x-2"
@@ -233,10 +233,10 @@ const Index = () => {
           </div>
           
           <div className="tab-content-enter">
-            <ZerionPlatformDashboard 
-              showPlatformSettings={showPlatformSettings}
-              setShowPlatformSettings={setShowPlatformSettings}
-            />
+          <ZerionPlatformDashboard 
+            showPlatformSettings={showPlatformSettings}
+            setShowPlatformSettings={setShowPlatformSettings}
+          />
           </div>
         </div>
       </div>
@@ -251,7 +251,7 @@ const Index = () => {
             <div className="dashboard-header-title">
               <div className="p-4 bg-sage-turquoise-100 rounded-2xl hover-glow">
                 <Building2 className="w-10 h-10 text-sage-turquoise-600 hover-scale" />
-              </div>
+                </div>
               <div className="space-y-2">
                 <h1 className="text-4xl lg:text-5xl font-editorial font-bold text-balance">Galletti HQ Dashboard</h1>
                 <p className="text-muted-foreground text-xl leading-relaxed">Multi-location restaurant management</p>
@@ -272,7 +272,7 @@ const Index = () => {
           </div>
           
           <div className="tab-content-enter">
-            <GallettiHQDashboard />
+          <GallettiHQDashboard />
           </div>
         </div>
       </div>
@@ -287,7 +287,7 @@ const Index = () => {
             <div className="dashboard-header-title">
               <div className="p-4 bg-sage-turquoise-100 rounded-2xl hover-glow">
                 <Store className="w-10 h-10 text-sage-turquoise-600 hover-scale" />
-              </div>
+                </div>
               <div className="space-y-2">
                 <h1 className="text-4xl lg:text-5xl font-editorial font-bold text-balance">{restaurantName || 'Restaurant'} Dashboard</h1>
                 <p className="text-muted-foreground text-xl leading-relaxed">Location staff interface</p>
@@ -330,7 +330,7 @@ const Index = () => {
             </TabsList>
 
             <TabsContent value="pos" className="content-section tab-content-enter">
-              <POSInterface />
+          <POSInterface />
             </TabsContent>
 
             <TabsContent value="customers" className="content-section tab-content-enter">
@@ -386,7 +386,7 @@ const Index = () => {
           <Button variant="outline" effect="lift" onClick={signOut} className="space-x-2 slide-in-right">
             <LogOut className="w-4 h-4" />
             <span>Sign Out</span>
-          </Button>
+            </Button>
         </div>
 
         {/* Stats Overview */}
@@ -399,7 +399,7 @@ const Index = () => {
             <div className="stats-card-value text-sage-turquoise-600">{totalClients}</div>
             <p className="stats-card-label">Active loyalty members</p>
           </div>
-
+          
           <div className="stats-card interactive-card">
             <div className="stats-card-header">
               <h3 className="hierarchy-secondary">Total Stamps</h3>
@@ -408,7 +408,7 @@ const Index = () => {
             <div className="stats-card-value text-soft-emerald-500">{totalStamps}</div>
             <p className="stats-card-label">Stamps collected</p>
           </div>
-
+          
           <div className="stats-card interactive-card">
             <div className="stats-card-header">
               <h3 className="hierarchy-secondary">Ready for Reward</h3>
@@ -428,7 +428,7 @@ const Index = () => {
             <TabsTrigger value="customers" className="space-x-2 interactive-subtle">
               <Users className="w-4 h-4" />
               <span>Customers</span>
-            </TabsTrigger>
+                </TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="content-section tab-content-enter">
@@ -460,13 +460,13 @@ const Index = () => {
                     <p className="hierarchy-tertiary">Reward customer visit</p>
                   </div>
                 </div>
-              </div>
+                        </div>
 
               <div className="card-editorial-compact interactive-card">
                 <div className="flex flex-col items-center text-center space-y-6">
                   <div className="p-6 bg-soft-amber-100 rounded-2xl hover-glow">
                     <Scan className="w-10 h-10 text-soft-amber-500 hover-scale" />
-                  </div>
+                      </div>
                   <div className="space-y-2">
                     <h3 className="hierarchy-primary text-lg">Scan QR Code</h3>
                     <p className="hierarchy-tertiary">Quick customer lookup</p>
@@ -520,7 +520,7 @@ const Index = () => {
           restaurantId={restaurant?.id}
           onClientAdded={refreshClients}
         />
-
+        
         <AddStampDialog 
           open={isAddStampOpen} 
           onOpenChange={setIsAddStampOpen}

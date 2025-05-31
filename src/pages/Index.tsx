@@ -45,6 +45,7 @@ const Index = () => {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pageLoaded, setPageLoaded] = useState(false);
 
   useEffect(() => {
     const fetchRestaurantData = async () => {
@@ -137,6 +138,8 @@ const Index = () => {
         });
       } finally {
         setLoading(false);
+        // Trigger page loaded animation after a short delay
+        setTimeout(() => setPageLoaded(true), 100);
       }
     };
 
@@ -175,14 +178,23 @@ const Index = () => {
     }
   };
 
+  // Transform clients to include maxStamps for ClientList component
+  const transformedClients = clients.map(client => ({
+    ...client,
+    maxStamps: restaurant?.stamps_required || 10
+  }));
+
   const availableTabs = getAvailableTabs(role);
 
   if (loading || roleLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your dashboard...</p>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-editorial">
+          <div className="loading-skeleton w-12 h-12 rounded-full mx-auto mb-6"></div>
+          <div className="space-y-3">
+            <div className="loading-skeleton w-48 h-6 rounded mx-auto"></div>
+            <div className="loading-skeleton w-64 h-4 rounded mx-auto"></div>
+          </div>
         </div>
       </div>
     );
@@ -191,42 +203,41 @@ const Index = () => {
   // Render different layouts based on role
   if (role === 'zerion_admin') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center">
-              <Crown className="w-8 h-8 text-yellow-600 mr-3" />
-              <div>
-                <h1 className="text-4xl font-bold text-gray-900 mb-2">ZerionCore Platform</h1>
-                <div className="flex items-center gap-2">
-                  <p className="text-gray-600 text-lg">Restaurant Loyalty Platform Management</p>
-                  <Badge variant="outline" className="flex items-center gap-1">
-                    <Shield className="w-3 h-3" />
-                    {getRoleDisplayName(role)}
-                  </Badge>
-                </div>
+      <div className={`min-h-screen bg-background ${pageLoaded ? 'page-enter' : 'opacity-0'}`}>
+        <div className="container-editorial section-editorial-sm">
+          <div className="dashboard-header slide-in-left">
+            <div className="dashboard-header-title">
+              <div className="p-4 bg-sage-turquoise-100 rounded-2xl hover-glow">
+                <Crown className="w-10 h-10 text-sage-turquoise-600 icon-bounce" />
+              </div>
+              <div className="space-y-2">
+                <h1 className="text-4xl lg:text-5xl font-editorial font-bold text-balance">ZerionCore Platform</h1>
+                <p className="text-muted-foreground text-xl leading-relaxed">Enterprise restaurant loyalty management</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <Button 
-                variant="outline" 
-                size="lg" 
-                className="border-2"
+            <div className="dashboard-header-actions slide-in-right">
+              <Button
+                variant="outline"
+                effect="lift"
                 onClick={() => setShowPlatformSettings(true)}
+                className="space-x-2"
               >
-                <Settings className="w-5 h-5 mr-2" />
-                Platform Settings
+                <Settings className="w-4 h-4" />
+                <span>Platform Settings</span>
               </Button>
-              <Button onClick={signOut} variant="outline" size="lg" className="border-2">
-                <LogOut className="w-5 h-5 mr-2" />
-                Logout
+              <Button variant="outline" effect="lift" onClick={signOut} className="space-x-2">
+                <LogOut className="w-4 h-4" />
+                <span>Sign Out</span>
               </Button>
             </div>
           </div>
-          <ZerionPlatformDashboard 
-            showPlatformSettings={showPlatformSettings}
-            setShowPlatformSettings={setShowPlatformSettings}
-          />
+          
+          <div className="tab-content-enter">
+            <ZerionPlatformDashboard 
+              showPlatformSettings={showPlatformSettings}
+              setShowPlatformSettings={setShowPlatformSettings}
+            />
+          </div>
         </div>
       </div>
     );
@@ -234,47 +245,35 @@ const Index = () => {
 
   if (role === 'galletti_hq') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center">
-              <Crown className="w-8 h-8 text-yellow-600 mr-3" />
-              <div>
-                <h1 className="text-4xl font-bold text-gray-900 mb-2">Galletti Corporate HQ</h1>
-                <div className="flex items-center gap-2">
-                  <p className="text-gray-600 text-lg">Corporate management for all restaurant brands</p>
-                  <Badge variant="outline" className="flex items-center gap-1">
-                    <Shield className="w-3 h-3" />
-                    {getRoleDisplayName(role)}
-                  </Badge>
-                  {isViewingAsAdmin && (
-                    <Badge variant="secondary" className="flex items-center gap-1 bg-blue-100 text-blue-800">
-                      <Crown className="w-3 h-3" />
-                      Super Admin View
-                    </Badge>
-                  )}
-                </div>
+      <div className={`min-h-screen bg-background ${pageLoaded ? 'page-enter' : 'opacity-0'}`}>
+        <div className="container-editorial section-editorial-sm">
+          <div className="dashboard-header slide-in-left">
+            <div className="dashboard-header-title">
+              <div className="p-4 bg-sage-turquoise-100 rounded-2xl hover-glow">
+                <Building2 className="w-10 h-10 text-sage-turquoise-600 hover-scale" />
+              </div>
+              <div className="space-y-2">
+                <h1 className="text-4xl lg:text-5xl font-editorial font-bold text-balance">Galletti HQ Dashboard</h1>
+                <p className="text-muted-foreground text-xl leading-relaxed">Multi-location restaurant management</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="dashboard-header-actions slide-in-right">
               {isViewingAsAdmin && (
-                <Button 
-                  onClick={returnToPlatform} 
-                  variant="outline" 
-                  size="lg" 
-                  className="border-2 border-blue-200 bg-blue-50 hover:bg-blue-100"
-                >
-                  <ArrowLeft className="w-5 h-5 mr-2" />
-                  Return to Platform
+                <Button variant="outline" effect="lift" onClick={returnToPlatform} className="space-x-2">
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Back to Platform</span>
                 </Button>
               )}
-              <Button onClick={signOut} variant="outline" size="lg" className="border-2">
-                <LogOut className="w-5 h-5 mr-2" />
-                Logout
+              <Button variant="outline" effect="lift" onClick={signOut} className="space-x-2">
+                <LogOut className="w-4 h-4" />
+                <span>Sign Out</span>
               </Button>
             </div>
           </div>
-          <GallettiHQDashboard />
+          
+          <div className="tab-content-enter">
+            <GallettiHQDashboard />
+          </div>
         </div>
       </div>
     );
@@ -282,274 +281,236 @@ const Index = () => {
 
   if (role === 'location_staff') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center">
-              <Store className="w-8 h-8 text-blue-600 mr-3" />
-              <div>
-                <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                  {restaurantName || 'Location Staff Dashboard'}
-                </h1>
-                <div className="flex items-center gap-2">
-                  <p className="text-gray-600 text-lg">Point of Sale & Customer Management</p>
-                  <Badge variant="outline" className="flex items-center gap-1">
-                    <Shield className="w-3 h-3" />
-                    {getRoleDisplayName(role)}
-                  </Badge>
-                  {isViewingAsAdmin && (
-                    <Badge variant="secondary" className="flex items-center gap-1 bg-blue-100 text-blue-800">
-                      <Building2 className="w-3 h-3" />
-                      HQ View
-                    </Badge>
-                  )}
-                </div>
+      <div className={`min-h-screen bg-background ${pageLoaded ? 'page-enter' : 'opacity-0'}`}>
+        <div className="container-editorial section-editorial-sm">
+          <div className="dashboard-header slide-in-left">
+            <div className="dashboard-header-title">
+              <div className="p-4 bg-sage-turquoise-100 rounded-2xl hover-glow">
+                <Store className="w-10 h-10 text-sage-turquoise-600 hover-scale" />
+              </div>
+              <div className="space-y-2">
+                <h1 className="text-4xl lg:text-5xl font-editorial font-bold text-balance">{restaurantName || 'Restaurant'} Dashboard</h1>
+                <p className="text-muted-foreground text-xl leading-relaxed">Location staff interface</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="dashboard-header-actions slide-in-right">
               {isViewingAsAdmin && (
-                <Button 
-                  onClick={returnToHQ} 
-                  variant="outline" 
-                  size="lg" 
-                  className="border-2 border-blue-200 bg-blue-50 hover:bg-blue-100"
-                >
-                  <ArrowLeft className="w-5 h-5 mr-2" />
-                  Return to HQ
+                <Button variant="outline" effect="lift" onClick={returnToHQ} className="space-x-2">
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Back to HQ</span>
                 </Button>
               )}
-              <Button onClick={signOut} variant="outline" size="lg" className="border-2">
-                <LogOut className="w-5 h-5 mr-2" />
-                Logout
+              <Button variant="outline" effect="lift" onClick={signOut} className="space-x-2">
+                <LogOut className="w-4 h-4" />
+                <span>Sign Out</span>
               </Button>
             </div>
           </div>
-          <POSInterface />
+
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="content-section">
+            <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:grid-cols-none lg:flex">
+              {availableTabs.includes('pos') && (
+                <TabsTrigger value="pos" className="space-x-2 interactive-subtle">
+                  <Scan className="w-4 h-4" />
+                  <span>POS System</span>
+                </TabsTrigger>
+              )}
+              {availableTabs.includes('customers') && (
+                <TabsTrigger value="customers" className="space-x-2 interactive-subtle">
+                  <Users className="w-4 h-4" />
+                  <span>Customers</span>
+                </TabsTrigger>
+              )}
+              {availableTabs.includes('analytics') && (
+                <TabsTrigger value="analytics" className="space-x-2 interactive-subtle">
+                  <BarChart3 className="w-4 h-4" />
+                  <span>Analytics</span>
+                </TabsTrigger>
+              )}
+            </TabsList>
+
+            <TabsContent value="pos" className="content-section tab-content-enter">
+              <POSInterface />
+            </TabsContent>
+
+            <TabsContent value="customers" className="content-section tab-content-enter">
+              <div className="action-bar">
+                <div className="content-section-header">
+                  <h2 className="content-section-title">Customer Management</h2>
+                  <p className="content-section-description">Manage customer loyalty and rewards</p>
+                </div>
+                <div className="action-group">
+                  <Button onClick={() => setIsAddClientOpen(true)} effect="lift" className="space-x-2">
+                    <Plus className="w-4 h-4" />
+                    <span>Add Customer</span>
+                  </Button>
+                  <Button onClick={() => setIsAddStampOpen(true)} variant="sage" effect="glow" className="space-x-2">
+                    <Gift className="w-4 h-4" />
+                    <span>Add Stamp</span>
+                  </Button>
+                </div>
+              </div>
+              
+              <ClientList 
+                clients={transformedClients} 
+                restaurantId={restaurant?.id}
+                onRefresh={refreshClients}
+              />
+            </TabsContent>
+
+            <TabsContent value="analytics" className="content-section tab-content-enter">
+              <AnalyticsDashboard />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     );
   }
 
-  // Restaurant Owner Dashboard (original layout)
+  // Default restaurant owner layout
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center">
-            <Store className="w-8 h-8 text-blue-600 mr-3" />
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                {restaurant?.name || restaurantName || 'Restaurant Management'}
+    <div className={`min-h-screen bg-background ${pageLoaded ? 'page-enter' : 'opacity-0'}`}>
+      <div className="container-editorial section-editorial-sm">
+        <div className="dashboard-header slide-in-left">
+          <div className="dashboard-header-title">
+            <div className="p-4 bg-sage-turquoise-100 rounded-2xl hover-glow">
+              <Store className="w-10 h-10 text-sage-turquoise-600 hover-scale" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-4xl lg:text-5xl font-editorial font-bold text-balance">
+                {restaurant?.name || 'Restaurant'} Loyalty
               </h1>
-              <div className="flex items-center gap-2">
-                <p className="text-gray-600 text-lg">Manage your restaurant locations and loyalty program</p>
-                <Badge variant="outline" className="flex items-center gap-1">
-                  <Shield className="w-3 h-3" />
-                  {getRoleDisplayName(role)}
-                </Badge>
-                {isViewingAsAdmin && (
-                  <Badge variant="secondary" className="flex items-center gap-1 bg-blue-100 text-blue-800">
-                    <Crown className="w-3 h-3" />
-                    Super Admin View
-                  </Badge>
-                )}
-              </div>
+              <p className="text-muted-foreground text-xl leading-relaxed">Manage your customer loyalty program</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {isViewingAsAdmin && (
-              <Button 
-                onClick={returnToPlatform} 
-                variant="outline" 
-                size="lg" 
-                className="border-2 border-blue-200 bg-blue-50 hover:bg-blue-100"
-              >
-                <ArrowLeft className="w-5 h-5 mr-2" />
-                Return to Platform
-              </Button>
-            )}
-            {permissions.canManageClients && (
-              <Button 
-                onClick={() => setIsAddClientOpen(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-                size="lg" 
-              >
-                <Plus className="w-5 h-5 mr-2" />
-                Add Client
-              </Button>
-            )}
-            {permissions.canAddStamps && (
-              <Button 
-                onClick={() => setIsAddStampOpen(true)}
-                className="bg-green-600 hover:bg-green-700 text-white"
-                size="lg"
-              >
-                <Scan className="w-5 h-5 mr-2" />
-                Add Stamp
-              </Button>
-            )}
-            <Button onClick={signOut} variant="outline" size="lg" className="border-2">
-              <LogOut className="w-5 h-5 mr-2" />
-              Logout
-            </Button>
+          <Button variant="outline" effect="lift" onClick={signOut} className="space-x-2 slide-in-right">
+            <LogOut className="w-4 h-4" />
+            <span>Sign Out</span>
+          </Button>
+        </div>
+
+        {/* Stats Overview */}
+        <div className="stats-grid stagger-fade-in">
+          <div className="stats-card interactive-card">
+            <div className="stats-card-header">
+              <h3 className="hierarchy-secondary">Total Customers</h3>
+              <Users className="h-6 w-6 text-sage-turquoise-600 hover-scale" />
+            </div>
+            <div className="stats-card-value text-sage-turquoise-600">{totalClients}</div>
+            <p className="stats-card-label">Active loyalty members</p>
+          </div>
+
+          <div className="stats-card interactive-card">
+            <div className="stats-card-header">
+              <h3 className="hierarchy-secondary">Total Stamps</h3>
+              <Gift className="h-6 w-6 text-soft-emerald-500 hover-scale" />
+            </div>
+            <div className="stats-card-value text-soft-emerald-500">{totalStamps}</div>
+            <p className="stats-card-label">Stamps collected</p>
+          </div>
+
+          <div className="stats-card interactive-card">
+            <div className="stats-card-header">
+              <h3 className="hierarchy-secondary">Ready for Reward</h3>
+              <QrCode className="h-6 w-6 text-soft-amber-500 hover-scale" />
+            </div>
+            <div className="stats-card-value text-soft-amber-500">{readyForReward}</div>
+            <p className="stats-card-label">Customers eligible</p>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="bg-white shadow-lg border-0 hover:shadow-xl transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Clients</CardTitle>
-              <Users className="h-5 w-5 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-gray-900">{totalClients}</div>
-              <p className="text-xs text-gray-500 mt-1">Active customers</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-white shadow-lg border-0 hover:shadow-xl transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Stamps</CardTitle>
-              <QrCode className="h-5 w-5 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-gray-900">{totalStamps}</div>
-              <p className="text-xs text-gray-500 mt-1">Stamps issued</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-white shadow-lg border-0 hover:shadow-xl transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Ready for Rewards</CardTitle>
-              <Gift className="h-5 w-5 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-gray-900">{readyForReward}</div>
-              <p className="text-xs text-gray-500 mt-1">Clients eligible</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className={`grid w-full bg-white shadow-md`} style={{ gridTemplateColumns: `repeat(${availableTabs.length}, 1fr)` }}>
-            {availableTabs.map(tabId => {
-              const tabConfig = {
-                dashboard: { label: 'Dashboard', icon: null },
-                clients: { label: 'Clients', icon: null },
-                geopush: { label: 'GeoPush', icon: MapPin },
-                analytics: { label: 'Analytics', icon: BarChart3 },
-                referrals: { label: 'Referrals', icon: Share2 },
-                locations: { label: 'Locations', icon: Building2 }
-              }[tabId];
-
-              if (!tabConfig) return null;
-
-              return (
-                <TabsTrigger 
-                  key={tabId}
-                  value={tabId} 
-                  className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-                >
-                  {tabConfig.icon && <tabConfig.icon className="w-4 h-4 mr-1" />}
-                  {tabConfig.label}
-                </TabsTrigger>
-              );
-            })}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="content-section">
+          <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:grid-cols-none lg:flex">
+            <TabsTrigger value="dashboard" className="space-x-2 interactive-subtle">
+              <Store className="w-4 h-4" />
+              <span>Dashboard</span>
+            </TabsTrigger>
+            <TabsTrigger value="customers" className="space-x-2 interactive-subtle">
+              <Users className="w-4 h-4" />
+              <span>Customers</span>
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="dashboard" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="bg-white shadow-lg border-0">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Gift className="w-5 h-5 text-green-600" />
-                    Recent Rewards
-                  </CardTitle>
-                  <CardDescription>Clients who completed their stamp cards</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {clients.filter(client => client.stamps >= (restaurant?.stamps_required || 10)).map(client => (
-                      <div key={client.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                        <div>
-                          <p className="font-medium text-gray-900">{client.name}</p>
-                          <p className="text-sm text-gray-500">{client.email}</p>
-                        </div>
-                        <Badge className="bg-green-600 text-white">Ready</Badge>
-                      </div>
-                    ))}
-                    {readyForReward === 0 && (
-                      <p className="text-gray-500 text-center py-4">No clients ready for rewards yet</p>
-                    )}
+          <TabsContent value="dashboard" className="content-section tab-content-enter">
+            <div className="content-section-header">
+              <h2 className="content-section-title">Quick Actions</h2>
+              <p className="content-section-description">Common tasks and operations</p>
+            </div>
+            
+            <div className="grid-editorial-sm grid-cols-1 md:grid-cols-2 lg:grid-cols-4 stagger-fade-in">
+              <div className="card-editorial-compact interactive-card" onClick={() => setIsAddClientOpen(true)}>
+                <div className="flex flex-col items-center text-center space-y-6">
+                  <div className="p-6 bg-sage-turquoise-100 rounded-2xl hover-glow">
+                    <Plus className="w-10 h-10 text-sage-turquoise-600 hover-scale" />
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="space-y-2">
+                    <h3 className="hierarchy-primary text-lg">Add Customer</h3>
+                    <p className="hierarchy-tertiary">Register new loyalty member</p>
+                  </div>
+                </div>
+              </div>
 
-              <Card className="bg-white shadow-lg border-0">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <QrCode className="w-5 h-5 text-purple-600" />
-                    Quick Actions
-                  </CardTitle>
-                  <CardDescription>Common tasks for managing your loyalty program</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Button 
-                    onClick={() => setIsAddStampOpen(true)}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white justify-start"
-                    size="lg"
-                  >
-                    <Scan className="w-5 h-5 mr-3" />
-                    Scan QR & Add Stamp
-                  </Button>
-                  <Button 
-                    onClick={() => setIsAddClientOpen(true)}
-                    variant="outline" 
-                    className="w-full justify-start border-2 hover:bg-blue-50"
-                    size="lg"
-                  >
-                    <Plus className="w-5 h-5 mr-3" />
-                    Register New Client
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start border-2 hover:bg-purple-50"
-                    size="lg"
-                  >
-                    <QrCode className="w-5 h-5 mr-3" />
-                    Generate QR Codes
-                  </Button>
-                </CardContent>
-              </Card>
+              <div className="card-editorial-compact interactive-card" onClick={() => setIsAddStampOpen(true)}>
+                <div className="flex flex-col items-center text-center space-y-6">
+                  <div className="p-6 bg-soft-emerald-100 rounded-2xl hover-glow">
+                    <Gift className="w-10 h-10 text-soft-emerald-500 hover-scale" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="hierarchy-primary text-lg">Add Stamp</h3>
+                    <p className="hierarchy-tertiary">Reward customer visit</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="card-editorial-compact interactive-card">
+                <div className="flex flex-col items-center text-center space-y-6">
+                  <div className="p-6 bg-soft-amber-100 rounded-2xl hover-glow">
+                    <Scan className="w-10 h-10 text-soft-amber-500 hover-scale" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="hierarchy-primary text-lg">Scan QR Code</h3>
+                    <p className="hierarchy-tertiary">Quick customer lookup</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="card-editorial-compact interactive-card">
+                <div className="flex flex-col items-center text-center space-y-6">
+                  <div className="p-6 bg-soft-rose-100 rounded-2xl hover-glow">
+                    <BarChart3 className="w-10 h-10 text-soft-rose-400 hover-scale" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="hierarchy-primary text-lg">View Analytics</h3>
+                    <p className="hierarchy-tertiary">Track performance</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </TabsContent>
 
-          <TabsContent value="clients">
+          <TabsContent value="customers" className="content-section tab-content-enter">
+            <div className="action-bar">
+              <div className="content-section-header">
+                <h2 className="content-section-title">Customer Management</h2>
+                <p className="content-section-description">Manage your loyalty program members</p>
+              </div>
+              <div className="action-group">
+                <Button onClick={() => setIsAddClientOpen(true)} effect="lift" className="space-x-2">
+                  <Plus className="w-4 h-4" />
+                  <span>Add Customer</span>
+                </Button>
+                <Button onClick={() => setIsAddStampOpen(true)} variant="sage" effect="glow" className="space-x-2">
+                  <Gift className="w-4 h-4" />
+                  <span>Add Stamp</span>
+                </Button>
+              </div>
+            </div>
+            
             <ClientList 
-              clients={clients.map(client => ({
-                ...client,
-                maxStamps: restaurant?.stamps_required || 10
-              }))} 
-              onRefresh={refreshClients}
+              clients={transformedClients} 
               restaurantId={restaurant?.id}
+              onRefresh={refreshClients}
             />
-          </TabsContent>
-
-          <TabsContent value="geopush">
-            <GeoPushSettings restaurantId={restaurant?.id} />
-          </TabsContent>
-
-          <TabsContent value="analytics">
-            <AnalyticsDashboard restaurantId={restaurant?.id} />
-          </TabsContent>
-
-          <TabsContent value="referrals">
-            <ReferralDashboard />
-          </TabsContent>
-
-          <TabsContent value="locations">
-            <MultiLocationDashboard />
           </TabsContent>
         </Tabs>
 
@@ -559,11 +520,11 @@ const Index = () => {
           restaurantId={restaurant?.id}
           onClientAdded={refreshClients}
         />
-        
+
         <AddStampDialog 
           open={isAddStampOpen} 
           onOpenChange={setIsAddStampOpen}
-          clients={clients}
+          clients={transformedClients}
           restaurantId={restaurant?.id}
           stampsRequired={restaurant?.stamps_required || 10}
           onStampAdded={refreshClients}

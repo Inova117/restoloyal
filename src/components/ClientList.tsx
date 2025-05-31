@@ -1,9 +1,9 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { QrCode, Phone, Mail, Gift, Plus, Users } from 'lucide-react';
 import StampProgress from './StampProgress';
+import AppleWalletButton from './AppleWalletButton';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -193,7 +193,7 @@ const ClientList = ({ clients, onRefresh, restaurantId }: ClientListProps) => {
                 )}
               </div>
               
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button
                   onClick={() => handleAddStamp(client.id, client.name)}
                   className="flex-1 bg-green-600 hover:bg-green-700 text-white"
@@ -214,6 +214,13 @@ const ClientList = ({ clients, onRefresh, restaurantId }: ClientListProps) => {
                     Redeem
                   </Button>
                 )}
+                
+                <AppleWalletButton
+                  clientId={client.id}
+                  clientName={client.name}
+                  variant="outline"
+                  size="sm"
+                />
               </div>
               
               <div className="text-xs text-gray-500 text-center">

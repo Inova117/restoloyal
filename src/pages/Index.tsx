@@ -3,11 +3,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { QrCode, Users, Gift, Plus, Scan, LogOut, Store, MapPin, BarChart3, Share2, Building2, Crown, Shield, Settings } from 'lucide-react';
+import { QrCode, Users, Gift, Plus, Scan, LogOut, Store, MapPin, BarChart3, Share2, Building2, Crown, Shield, Settings, ArrowLeft } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useUserRole, getAvailableTabs, getRoleDisplayName } from '@/hooks/useUserRole';
+import { useUserRole, getAvailableTabs, getRoleDisplayName, returnToPlatform, returnToHQ } from '@/hooks/useUserRole';
 import ClientList from '@/components/ClientList';
 import AddStampDialog from '@/components/AddStampDialog';
 import AddClientDialog from '@/components/AddClientDialog';
@@ -37,10 +37,11 @@ interface Client {
 
 const Index = () => {
   const { user, signOut } = useAuth();
-  const { role, permissions, isLoading: roleLoading, clientName, restaurantName } = useUserRole();
+  const { role, permissions, isLoading: roleLoading, clientName, restaurantName, isViewingAsAdmin } = useUserRole();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [isAddStampOpen, setIsAddStampOpen] = useState(false);
+  const [showPlatformSettings, setShowPlatformSettings] = useState(false);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -207,7 +208,12 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Button variant="outline" size="lg" className="border-2">
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="border-2"
+                onClick={() => setShowPlatformSettings(true)}
+              >
                 <Settings className="w-5 h-5 mr-2" />
                 Platform Settings
               </Button>
@@ -217,7 +223,10 @@ const Index = () => {
               </Button>
             </div>
           </div>
-          <ZerionPlatformDashboard />
+          <ZerionPlatformDashboard 
+            showPlatformSettings={showPlatformSettings}
+            setShowPlatformSettings={setShowPlatformSettings}
+          />
         </div>
       </div>
     );
@@ -238,13 +247,32 @@ const Index = () => {
                     <Shield className="w-3 h-3" />
                     {getRoleDisplayName(role)}
                   </Badge>
+                  {isViewingAsAdmin && (
+                    <Badge variant="secondary" className="flex items-center gap-1 bg-blue-100 text-blue-800">
+                      <Crown className="w-3 h-3" />
+                      Super Admin View
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>
-            <Button onClick={signOut} variant="outline" size="lg" className="border-2">
-              <LogOut className="w-5 h-5 mr-2" />
-              Logout
-            </Button>
+            <div className="flex items-center gap-3">
+              {isViewingAsAdmin && (
+                <Button 
+                  onClick={returnToPlatform} 
+                  variant="outline" 
+                  size="lg" 
+                  className="border-2 border-blue-200 bg-blue-50 hover:bg-blue-100"
+                >
+                  <ArrowLeft className="w-5 h-5 mr-2" />
+                  Return to Platform
+                </Button>
+              )}
+              <Button onClick={signOut} variant="outline" size="lg" className="border-2">
+                <LogOut className="w-5 h-5 mr-2" />
+                Logout
+              </Button>
+            </div>
           </div>
           <GallettiHQDashboard />
         </div>
@@ -260,20 +288,41 @@ const Index = () => {
             <div className="flex items-center">
               <Store className="w-8 h-8 text-blue-600 mr-3" />
               <div>
-                <h1 className="text-4xl font-bold text-gray-900 mb-2">Location Staff Dashboard</h1>
+                <h1 className="text-4xl font-bold text-gray-900 mb-2">
+                  {restaurantName || 'Location Staff Dashboard'}
+                </h1>
                 <div className="flex items-center gap-2">
                   <p className="text-gray-600 text-lg">Point of Sale & Customer Management</p>
                   <Badge variant="outline" className="flex items-center gap-1">
                     <Shield className="w-3 h-3" />
                     {getRoleDisplayName(role)}
                   </Badge>
+                  {isViewingAsAdmin && (
+                    <Badge variant="secondary" className="flex items-center gap-1 bg-blue-100 text-blue-800">
+                      <Building2 className="w-3 h-3" />
+                      HQ View
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>
-            <Button onClick={signOut} variant="outline" size="lg" className="border-2">
-              <LogOut className="w-5 h-5 mr-2" />
-              Logout
-            </Button>
+            <div className="flex items-center gap-3">
+              {isViewingAsAdmin && (
+                <Button 
+                  onClick={returnToHQ} 
+                  variant="outline" 
+                  size="lg" 
+                  className="border-2 border-blue-200 bg-blue-50 hover:bg-blue-100"
+                >
+                  <ArrowLeft className="w-5 h-5 mr-2" />
+                  Return to HQ
+                </Button>
+              )}
+              <Button onClick={signOut} variant="outline" size="lg" className="border-2">
+                <LogOut className="w-5 h-5 mr-2" />
+                Logout
+              </Button>
+            </div>
           </div>
           <POSInterface />
         </div>
@@ -298,15 +347,32 @@ const Index = () => {
                   <Shield className="w-3 h-3" />
                   {getRoleDisplayName(role)}
                 </Badge>
+                {isViewingAsAdmin && (
+                  <Badge variant="secondary" className="flex items-center gap-1 bg-blue-100 text-blue-800">
+                    <Crown className="w-3 h-3" />
+                    Super Admin View
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {isViewingAsAdmin && (
+              <Button 
+                onClick={returnToPlatform} 
+                variant="outline" 
+                size="lg" 
+                className="border-2 border-blue-200 bg-blue-50 hover:bg-blue-100"
+              >
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                Return to Platform
+              </Button>
+            )}
             {permissions.canManageClients && (
               <Button 
                 onClick={() => setIsAddClientOpen(true)}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
-                size="lg"
+                size="lg" 
               >
                 <Plus className="w-5 h-5 mr-2" />
                 Add Client
@@ -322,12 +388,7 @@ const Index = () => {
                 Add Stamp
               </Button>
             )}
-            <Button 
-              onClick={signOut}
-              variant="outline"
-              size="lg"
-              className="border-2"
-            >
+            <Button onClick={signOut} variant="outline" size="lg" className="border-2">
               <LogOut className="w-5 h-5 mr-2" />
               Logout
             </Button>

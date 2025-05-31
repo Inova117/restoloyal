@@ -15,18 +15,7 @@ import {
   CheckCircle,
   AlertCircle
 } from 'lucide-react'
-
-interface Customer {
-  id: string
-  name: string
-  email: string
-  phone: string
-  qr_code: string
-  stamps: number
-  stamps_required: number
-  last_visit: string
-  total_visits: number
-}
+import { usePOSOperations, Customer } from '@/hooks/usePOSOperations'
 
 interface RecentTransaction {
   id: string
@@ -38,11 +27,11 @@ interface RecentTransaction {
 }
 
 export default function POSInterface() {
+  const { registerCustomer, addStamp, redeemReward, lookupCustomer, isLoading } = usePOSOperations()
   const [qrInput, setQrInput] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null)
   const [recentTransactions, setRecentTransactions] = useState<RecentTransaction[]>([])
-  const [loading, setLoading] = useState(false)
   const { toast } = useToast()
 
   // Simulated customer database
@@ -56,7 +45,11 @@ export default function POSInterface() {
       stamps: 8,
       stamps_required: 10,
       last_visit: '2024-01-15',
-      total_visits: 12
+      total_visits: 12,
+      status: 'active',
+      total_stamps: 8,
+      total_rewards: 1,
+      created_at: '2024-01-01T00:00:00Z'
     },
     {
       id: '2',
@@ -67,7 +60,11 @@ export default function POSInterface() {
       stamps: 10,
       stamps_required: 10,
       last_visit: '2024-01-14',
-      total_visits: 8
+      total_visits: 8,
+      status: 'active',
+      total_stamps: 10,
+      total_rewards: 2,
+      created_at: '2024-01-02T00:00:00Z'
     },
     {
       id: '3',
@@ -78,7 +75,11 @@ export default function POSInterface() {
       stamps: 3,
       stamps_required: 10,
       last_visit: '2024-01-13',
-      total_visits: 5
+      total_visits: 5,
+      status: 'active',
+      total_stamps: 3,
+      total_rewards: 0,
+      created_at: '2024-01-03T00:00:00Z'
     }
   ])
 
@@ -100,8 +101,6 @@ export default function POSInterface() {
       })
       return
     }
-
-    setLoading(true)
     
     // Simulate QR lookup
     setTimeout(() => {
@@ -120,14 +119,11 @@ export default function POSInterface() {
           variant: "destructive"
         })
       }
-      setLoading(false)
     }, 1000)
   }
 
   const handleCustomerSearch = () => {
     if (!searchInput.trim()) return
-
-    setLoading(true)
     
     // Simulate customer search
     setTimeout(() => {
@@ -151,7 +147,6 @@ export default function POSInterface() {
           variant: "destructive"
         })
       }
-      setLoading(false)
     }, 800)
   }
 
@@ -234,8 +229,8 @@ export default function POSInterface() {
                   onChange={(e) => setQrInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleQRScan()}
                 />
-                <Button onClick={handleQRScan} disabled={loading}>
-                  {loading ? 'Scanning...' : 'Scan'}
+                <Button onClick={handleQRScan} disabled={isLoading}>
+                  {isLoading ? 'Scanning...' : 'Scan'}
                 </Button>
               </div>
               <p className="text-xs text-gray-500">
@@ -261,7 +256,7 @@ export default function POSInterface() {
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleCustomerSearch()}
                 />
-                <Button onClick={handleCustomerSearch} disabled={loading} variant="outline">
+                <Button onClick={handleCustomerSearch} disabled={isLoading} variant="outline">
                   <Search className="h-4 w-4" />
                 </Button>
               </div>

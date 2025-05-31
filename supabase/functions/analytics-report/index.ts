@@ -1,4 +1,6 @@
+// @ts-ignore - Deno imports work in Supabase Edge Functions
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+// @ts-ignore - Deno imports work in Supabase Edge Functions
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -6,14 +8,62 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface AnalyticsRequest {
-  restaurantId: string
-  reportType: 'overview' | 'customers' | 'engagement' | 'retention' | 'cohorts'
-  dateRange: {
-    start: string
-    end: string
-  }
-  period?: 'daily' | 'weekly' | 'monthly'
+interface AggregateMetrics {
+  total_customers: number
+  active_customers_30d: number
+  total_rewards: number
+  total_stamps_issued: number
+  growth_rate_30d: number
+  revenue_estimate: number
+  avg_stamps_per_customer: number
+  reward_redemption_rate: number
+}
+
+interface LocationBreakdown {
+  location_id: string
+  location_name: string
+  address: string
+  city: string
+  state: string
+  customers: number
+  active_customers_30d: number
+  stamps_issued: number
+  rewards_redeemed: number
+  activity_rate: number
+  revenue_estimate: number
+  growth_rate: number
+}
+
+interface TrendData {
+  monthly_growth: Array<{
+    month: string
+    new_customers: number
+    stamps_issued: number
+    rewards_redeemed: number
+    revenue_estimate: number
+    growth_rate: number
+  }>
+  reward_redemption_trends: Array<{
+    month: string
+    redemption_rate: number
+    total_rewards: number
+    total_stamps: number
+  }>
+  retention_cohorts: Array<{
+    cohort_month: string
+    customers_acquired: number
+    month_1_retention: number
+    month_3_retention: number
+    month_6_retention: number
+    month_12_retention: number
+  }>
+}
+
+interface AnalyticsFilters {
+  time_range: '30d' | '90d' | '6m' | '1y' | 'custom'
+  start_date?: string
+  end_date?: string
+  location_ids?: string[]
 }
 
 serve(async (req) => {
@@ -25,7 +75,9 @@ serve(async (req) => {
   try {
     // Initialize Supabase client
     const supabaseClient = createClient(
+      // @ts-ignore - Deno global works in Edge Functions
       Deno.env.get('SUPABASE_URL') ?? '',
+      // @ts-ignore - Deno global works in Edge Functions
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
         global: {
@@ -34,456 +86,653 @@ serve(async (req) => {
       }
     )
 
-    // Get user from JWT
+    // Get authenticated user
     const {
       data: { user },
+      error: authError,
     } = await supabaseClient.auth.getUser()
 
-    if (!user) {
+    if (authError || !user) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       )
     }
 
-    if (req.method === 'POST') {
-      const { restaurantId, reportType, dateRange, period = 'daily' } = await req.json() as AnalyticsRequest
+    // Get client_id from query params
+    const url = new URL(req.url)
+    const clientId = url.searchParams.get('client_id')
+    
+    if (!clientId) {
+      return new Response(
+        JSON.stringify({ error: 'client_id is required' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
 
-      if (!restaurantId || !reportType || !dateRange) {
-        return new Response(
-          JSON.stringify({ error: 'Missing required parameters' }),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
-      }
+    // Verify user has client_admin role for this client
+    const { data: adminCheck, error: adminError } = await supabaseClient
+      .from('user_roles')
+      .select('role, client_id')
+      .eq('user_id', user.id)
+      .eq('client_id', clientId)
+      .eq('role', 'client_admin')
+      .eq('status', 'active')
+      .single()
 
-      // Verify user has access to this restaurant
-      const { data: restaurant } = await supabaseClient
-        .from('restaurants')
-        .select('user_id')
-        .eq('id', restaurantId)
+    if (adminError || !adminCheck) {
+      // Also check if user is a platform admin
+      const { data: platformAdminCheck, error: platformAdminError } = await supabaseClient
+        .from('platform_admin_users')
+        .select('role')
+        .eq('user_id', user.id)
+        .in('role', ['super_admin', 'admin'])
+        .eq('status', 'active')
         .single()
 
-      if (restaurant?.user_id !== user.id) {
+      if (platformAdminError || !platformAdminCheck) {
         return new Response(
-          JSON.stringify({ error: 'Access denied' }),
-          { 
-            status: 403, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          JSON.stringify({ 
+            error: 'Forbidden: You are not authorized to view analytics for this client' 
+          }),
+          {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           }
         )
       }
-
-      let reportData: any = {}
-
-      switch (reportType) {
-        case 'overview':
-          reportData = await generateOverviewReport(supabaseClient, restaurantId, dateRange)
-          break
-        case 'customers':
-          reportData = await generateCustomerReport(supabaseClient, restaurantId, dateRange)
-          break
-        case 'engagement':
-          reportData = await generateEngagementReport(supabaseClient, restaurantId, dateRange, period)
-          break
-        case 'retention':
-          reportData = await generateRetentionReport(supabaseClient, restaurantId, dateRange)
-          break
-        case 'cohorts':
-          reportData = await generateCohortReport(supabaseClient, restaurantId, dateRange)
-          break
-        default:
-          return new Response(
-            JSON.stringify({ error: 'Invalid report type' }),
-            { 
-              status: 400, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-            }
-          )
-      }
-
-      return new Response(
-        JSON.stringify({
-          reportType,
-          dateRange,
-          period,
-          generatedAt: new Date().toISOString(),
-          data: reportData
-        }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
     }
 
-    return new Response('Method not allowed', { status: 405 })
+    const endpoint = url.searchParams.get('endpoint') || 'aggregate'
+
+    // Parse filters
+    const filters: AnalyticsFilters = {
+      time_range: (url.searchParams.get('time_range') as any) || '30d',
+      start_date: url.searchParams.get('start_date') || undefined,
+      end_date: url.searchParams.get('end_date') || undefined,
+      location_ids: url.searchParams.get('location_ids')?.split(',') || undefined
+    }
+
+    // Calculate date range
+    const dateRange = calculateDateRange(filters)
+
+    // Handle different analytics endpoints
+    if (endpoint === 'aggregate') {
+      return await handleAggregateMetrics(supabaseClient, clientId, dateRange)
+    }
+    
+    if (endpoint === 'locations') {
+      return await handleLocationBreakdown(supabaseClient, clientId, dateRange, filters.location_ids)
+    }
+    
+    if (endpoint === 'trends') {
+      return await handleTrendAnalysis(supabaseClient, clientId, dateRange)
+    }
+
+    return new Response(
+      JSON.stringify({ error: 'Invalid endpoint' }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    )
 
   } catch (error) {
-    console.error('Error generating analytics report:', error)
+    console.error('Analytics API Error:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      JSON.stringify({ 
+        error: 'Internal server error',
+        details: error.message 
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     )
   }
 })
 
-async function generateOverviewReport(supabase: any, restaurantId: string, dateRange: any) {
-  // Get restaurant performance summary
-  const { data: performance } = await supabase
-    .from('restaurant_performance')
-    .select('*')
-    .eq('id', restaurantId)
-    .single()
+function calculateDateRange(filters: AnalyticsFilters): { start_date: string; end_date: string } {
+  const now = new Date()
+  let startDate: Date
+  let endDate = new Date(now)
 
-  // Get recent business metrics
-  const { data: recentMetrics } = await supabase
-    .from('business_metrics')
-    .select('*')
-    .eq('restaurant_id', restaurantId)
-    .gte('metric_date', dateRange.start)
-    .lte('metric_date', dateRange.end)
-    .eq('period_type', 'daily')
-    .order('metric_date', { ascending: false })
-
-  // Calculate trends
-  const totalStamps = recentMetrics?.reduce((sum, m) => sum + (m.total_stamps || 0), 0) || 0
-  const totalRewards = recentMetrics?.reduce((sum, m) => sum + (m.rewards_redeemed || 0), 0) || 0
-  const totalNewCustomers = recentMetrics?.reduce((sum, m) => sum + (m.new_customers || 0), 0) || 0
-
-  // Get top customers
-  const { data: topCustomers } = await supabase
-    .from('customer_insights')
-    .select('name, email, lifetime_stamps, lifetime_rewards, customer_status')
-    .eq('restaurant_id', restaurantId)
-    .order('lifetime_stamps', { ascending: false })
-    .limit(10)
+  if (filters.time_range === 'custom' && filters.start_date && filters.end_date) {
+    startDate = new Date(filters.start_date)
+    endDate = new Date(filters.end_date)
+  } else {
+    switch (filters.time_range) {
+      case '30d':
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        break
+      case '90d':
+        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+        break
+      case '6m':
+        startDate = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)
+        break
+      case '1y':
+        startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+        break
+      default:
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    }
+  }
 
   return {
-    summary: {
-      totalCustomers: performance?.total_customers || 0,
-      activeCustomers: performance?.active_customers || 0,
-      newCustomers30d: performance?.new_customers_30d || 0,
-      totalStamps: performance?.total_stamps || 0,
-      totalRewards: performance?.total_rewards || 0,
-      retentionRate: performance?.customer_retention_rate || 0,
-      avgStampsPerCustomer: performance?.avg_stamps_per_customer || 0
-    },
-    trends: {
-      stampsInPeriod: totalStamps,
-      rewardsInPeriod: totalRewards,
-      newCustomersInPeriod: totalNewCustomers,
-      dailyMetrics: recentMetrics || []
-    },
-    topCustomers: topCustomers || []
+    start_date: startDate.toISOString(),
+    end_date: endDate.toISOString()
   }
 }
 
-async function generateCustomerReport(supabase: any, restaurantId: string, dateRange: any) {
-  // Get detailed customer insights
-  const { data: customers } = await supabase
-    .from('customer_insights')
-    .select('*')
-    .eq('restaurant_id', restaurantId)
-    .order('lifetime_stamps', { ascending: false })
+async function handleAggregateMetrics(supabaseClient: any, clientId: string, dateRange: { start_date: string; end_date: string }) {
+  try {
+    // Get all locations for this client
+    const { data: locations, error: locationsError } = await supabaseClient
+      .from('locations')
+      .select('id')
+      .eq('client_id', clientId)
 
-  // Customer segmentation
-  const activeCustomers = customers?.filter(c => c.customer_status === 'Active') || []
-  const atRiskCustomers = customers?.filter(c => c.customer_status === 'At Risk') || []
-  const inactiveCustomers = customers?.filter(c => c.customer_status === 'Inactive') || []
+    if (locationsError) {
+      throw new Error(`Failed to fetch locations: ${locationsError.message}`)
+    }
 
-  // New customers in date range
-  const newCustomers = customers?.filter(c => {
-    const joinedDate = new Date(c.joined_date)
-    const startDate = new Date(dateRange.start)
-    const endDate = new Date(dateRange.end)
-    return joinedDate >= startDate && joinedDate <= endDate
-  }) || []
+    const locationIds = locations.map((loc: any) => loc.id)
 
-  return {
-    totalCustomers: customers?.length || 0,
-    segmentation: {
-      active: {
-        count: activeCustomers.length,
-        percentage: customers?.length ? (activeCustomers.length / customers.length * 100).toFixed(1) : 0
-      },
-      atRisk: {
-        count: atRiskCustomers.length,
-        percentage: customers?.length ? (atRiskCustomers.length / customers.length * 100).toFixed(1) : 0
-      },
-      inactive: {
-        count: inactiveCustomers.length,
-        percentage: customers?.length ? (inactiveCustomers.length / customers.length * 100).toFixed(1) : 0
+    if (locationIds.length === 0) {
+      // No locations found, return empty metrics
+      const emptyMetrics: AggregateMetrics = {
+        total_customers: 0,
+        active_customers_30d: 0,
+        total_rewards: 0,
+        total_stamps_issued: 0,
+        growth_rate_30d: 0,
+        revenue_estimate: 0,
+        avg_stamps_per_customer: 0,
+        reward_redemption_rate: 0
       }
-    },
-    newCustomersInPeriod: newCustomers.length,
-    customerDetails: customers || [],
-    insights: {
-      avgLifetimeStamps: customers?.reduce((sum, c) => sum + c.lifetime_stamps, 0) / (customers?.length || 1),
-      avgDaysSinceJoined: customers?.reduce((sum, c) => sum + c.days_since_joined, 0) / (customers?.length || 1),
-      rewardRedemptionRate: customers?.filter(c => c.lifetime_rewards > 0).length / (customers?.length || 1) * 100
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          data: emptyMetrics,
+          date_range: dateRange
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
     }
-  }
-}
 
-async function generateEngagementReport(supabase: any, restaurantId: string, dateRange: any, period: string) {
-  // Get business metrics for the period
-  const { data: metrics } = await supabase
-    .from('business_metrics')
-    .select('*')
-    .eq('restaurant_id', restaurantId)
-    .eq('period_type', period)
-    .gte('metric_date', dateRange.start)
-    .lte('metric_date', dateRange.end)
-    .order('metric_date', { ascending: true })
+    // Total customers (all time)
+    const { count: totalCustomers } = await supabaseClient
+      .from('clients')
+      .select('*', { count: 'exact', head: true })
+      .in('location_id', locationIds)
 
-  // Get event analytics
-  const { data: events } = await supabase
-    .from('customer_analytics')
-    .select('event_type, created_at, event_data')
-    .eq('restaurant_id', restaurantId)
-    .gte('created_at', dateRange.start)
-    .lte('created_at', dateRange.end)
-    .order('created_at', { ascending: true })
+    // Active customers (last 30 days)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const { count: activeCustomers30d } = await supabaseClient
+      .from('stamps')
+      .select('client_id', { count: 'exact', head: true })
+      .in('location_id', locationIds)
+      .gte('created_at', thirtyDaysAgo)
+      .not('client_id', 'is', null)
 
-  // Analyze event patterns
-  const eventCounts = events?.reduce((acc, event) => {
-    acc[event.event_type] = (acc[event.event_type] || 0) + 1
-    return acc
-  }, {} as Record<string, number>) || {}
+    // Total stamps issued in date range
+    const { count: totalStamps } = await supabaseClient
+      .from('stamps')
+      .select('*', { count: 'exact', head: true })
+      .in('location_id', locationIds)
+      .gte('created_at', dateRange.start_date)
+      .lte('created_at', dateRange.end_date)
 
-  // Calculate engagement trends
-  const totalStamps = metrics?.reduce((sum, m) => sum + (m.total_stamps || 0), 0) || 0
-  const totalVisits = metrics?.reduce((sum, m) => sum + (m.total_visits || 0), 0) || 0
-  const totalRewards = metrics?.reduce((sum, m) => sum + (m.rewards_redeemed || 0), 0) || 0
+    // Total rewards redeemed in date range
+    const { count: totalRewards } = await supabaseClient
+      .from('rewards')
+      .select('*', { count: 'exact', head: true })
+      .in('location_id', locationIds)
+      .gte('redeemed_at', dateRange.start_date)
+      .lte('redeemed_at', dateRange.end_date)
 
-  return {
-    periodMetrics: metrics || [],
-    eventAnalysis: {
-      totalEvents: events?.length || 0,
-      eventBreakdown: eventCounts,
-      stampsEarned: totalStamps,
-      visitsRecorded: totalVisits,
-      rewardsRedeemed: totalRewards
-    },
-    engagementTrends: {
-      avgStampsPerVisit: totalVisits > 0 ? (totalStamps / totalVisits).toFixed(2) : 0,
-      rewardRedemptionRate: totalStamps > 0 ? (totalRewards / totalStamps * 100).toFixed(1) : 0,
-      customerEngagementScore: calculateEngagementScore(metrics || [])
+    // Calculate growth rate (compare current period to previous period)
+    const periodLength = new Date(dateRange.end_date).getTime() - new Date(dateRange.start_date).getTime()
+    const previousPeriodStart = new Date(new Date(dateRange.start_date).getTime() - periodLength).toISOString()
+    const previousPeriodEnd = dateRange.start_date
+
+    const { count: previousPeriodCustomers } = await supabaseClient
+      .from('clients')
+      .select('*', { count: 'exact', head: true })
+      .in('location_id', locationIds)
+      .gte('created_at', previousPeriodStart)
+      .lt('created_at', previousPeriodEnd)
+
+    const { count: currentPeriodCustomers } = await supabaseClient
+      .from('clients')
+      .select('*', { count: 'exact', head: true })
+      .in('location_id', locationIds)
+      .gte('created_at', dateRange.start_date)
+      .lte('created_at', dateRange.end_date)
+
+    const growthRate = previousPeriodCustomers > 0 
+      ? ((currentPeriodCustomers - previousPeriodCustomers) / previousPeriodCustomers) * 100 
+      : 0
+
+    // Calculate metrics
+    const avgStampsPerCustomer = totalCustomers > 0 ? (totalStamps || 0) / totalCustomers : 0
+    const rewardRedemptionRate = totalStamps > 0 ? ((totalRewards || 0) / (totalStamps || 1)) * 100 : 0
+    const revenueEstimate = (totalStamps || 0) * 1.5 // Estimate $1.50 per stamp
+
+    const metrics: AggregateMetrics = {
+      total_customers: totalCustomers || 0,
+      active_customers_30d: activeCustomers30d || 0,
+      total_rewards: totalRewards || 0,
+      total_stamps_issued: totalStamps || 0,
+      growth_rate_30d: Math.round(growthRate * 100) / 100,
+      revenue_estimate: Math.round(revenueEstimate * 100) / 100,
+      avg_stamps_per_customer: Math.round(avgStampsPerCustomer * 100) / 100,
+      reward_redemption_rate: Math.round(rewardRedemptionRate * 100) / 100
     }
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        data: metrics,
+        date_range: dateRange
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    )
+
+  } catch (error) {
+    console.error('Aggregate metrics error:', error)
+    return new Response(
+      JSON.stringify({ 
+        error: 'Failed to fetch aggregate metrics', 
+        details: error.message 
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    )
   }
 }
 
-async function generateRetentionReport(supabase: any, restaurantId: string, dateRange: any) {
-  // Get customer insights for retention analysis
-  const { data: customers } = await supabase
-    .from('customer_insights')
-    .select('*')
-    .eq('restaurant_id', restaurantId)
+async function handleLocationBreakdown(supabaseClient: any, clientId: string, dateRange: { start_date: string; end_date: string }, locationIds?: string[]) {
+  try {
+    // Get locations for this client
+    let locationsQuery = supabaseClient
+      .from('locations')
+      .select(`
+        id,
+        name,
+        address,
+        city,
+        state
+      `)
+      .eq('client_id', clientId)
 
-  if (!customers || customers.length === 0) {
-    return {
-      retentionMetrics: {},
-      customerLifecycle: [],
-      recommendations: []
+    if (locationIds && locationIds.length > 0) {
+      locationsQuery = locationsQuery.in('id', locationIds)
     }
-  }
 
-  // Calculate retention metrics
-  const totalCustomers = customers.length
-  const activeCustomers = customers.filter(c => c.customer_status === 'Active').length
-  const atRiskCustomers = customers.filter(c => c.customer_status === 'At Risk').length
-  const inactiveCustomers = customers.filter(c => c.customer_status === 'Inactive').length
+    const { data: locations, error: locationsError } = await locationsQuery
 
-  // Analyze customer lifecycle stages
-  const newCustomers = customers.filter(c => c.days_since_joined <= 30).length
-  const establishedCustomers = customers.filter(c => c.days_since_joined > 30 && c.days_since_joined <= 90).length
-  const loyalCustomers = customers.filter(c => c.days_since_joined > 90 && c.lifetime_rewards > 0).length
-
-  // Calculate average metrics
-  const avgDaysBetweenVisits = customers
-    .filter(c => c.total_visits > 1)
-    .reduce((sum, c) => sum + (c.days_since_joined / Math.max(c.total_visits - 1, 1)), 0) / 
-    Math.max(customers.filter(c => c.total_visits > 1).length, 1)
-
-  return {
-    retentionMetrics: {
-      overallRetentionRate: (activeCustomers / totalCustomers * 100).toFixed(1),
-      customerDistribution: {
-        active: { count: activeCustomers, percentage: (activeCustomers / totalCustomers * 100).toFixed(1) },
-        atRisk: { count: atRiskCustomers, percentage: (atRiskCustomers / totalCustomers * 100).toFixed(1) },
-        inactive: { count: inactiveCustomers, percentage: (inactiveCustomers / totalCustomers * 100).toFixed(1) }
-      },
-      avgDaysBetweenVisits: avgDaysBetweenVisits.toFixed(1)
-    },
-    customerLifecycle: {
-      new: { count: newCustomers, percentage: (newCustomers / totalCustomers * 100).toFixed(1) },
-      established: { count: establishedCustomers, percentage: (establishedCustomers / totalCustomers * 100).toFixed(1) },
-      loyal: { count: loyalCustomers, percentage: (loyalCustomers / totalCustomers * 100).toFixed(1) }
-    },
-    recommendations: generateRetentionRecommendations(customers)
-  }
-}
-
-async function generateCohortReport(supabase: any, restaurantId: string, dateRange: any) {
-  // Get customer cohort data
-  const { data: cohorts } = await supabase
-    .from('customer_cohorts')
-    .select('*')
-    .eq('restaurant_id', restaurantId)
-    .gte('cohort_month', dateRange.start)
-    .lte('cohort_month', dateRange.end)
-    .order('cohort_month', { ascending: true })
-    .order('period_number', { ascending: true })
-
-  // If no cohort data exists, calculate it from customer data
-  if (!cohorts || cohorts.length === 0) {
-    return await calculateCohortAnalysis(supabase, restaurantId, dateRange)
-  }
-
-  // Process cohort data for visualization
-  const cohortMatrix = processCohortData(cohorts)
-
-  return {
-    cohortMatrix,
-    insights: {
-      avgRetentionMonth1: calculateAverageRetention(cohorts, 1),
-      avgRetentionMonth3: calculateAverageRetention(cohorts, 3),
-      avgRetentionMonth6: calculateAverageRetention(cohorts, 6),
-      bestPerformingCohort: findBestCohort(cohorts),
-      retentionTrends: analyzeRetentionTrends(cohorts)
+    if (locationsError) {
+      throw new Error(`Failed to fetch locations: ${locationsError.message}`)
     }
-  }
-}
 
-// Helper functions
-function calculateEngagementScore(metrics: any[]): number {
-  if (!metrics || metrics.length === 0) return 0
-  
-  const avgStamps = metrics.reduce((sum, m) => sum + (m.total_stamps || 0), 0) / metrics.length
-  const avgVisits = metrics.reduce((sum, m) => sum + (m.total_visits || 0), 0) / metrics.length
-  const avgRewards = metrics.reduce((sum, m) => sum + (m.rewards_redeemed || 0), 0) / metrics.length
-  
-  // Simple engagement score calculation (0-100)
-  return Math.min(100, (avgStamps * 2 + avgVisits * 5 + avgRewards * 10))
-}
+    const breakdown: LocationBreakdown[] = []
 
-function generateRetentionRecommendations(customers: any[]): string[] {
-  const recommendations: string[] = []
-  
-  const atRiskCount = customers.filter(c => c.customer_status === 'At Risk').length
-  const inactiveCount = customers.filter(c => c.customer_status === 'Inactive').length
-  const lowEngagementCount = customers.filter(c => c.lifetime_stamps < 3).length
-  
-  if (atRiskCount > customers.length * 0.2) {
-    recommendations.push("High number of at-risk customers. Consider implementing a re-engagement campaign.")
-  }
-  
-  if (inactiveCount > customers.length * 0.3) {
-    recommendations.push("Many inactive customers detected. Review your retention strategy and consider win-back offers.")
-  }
-  
-  if (lowEngagementCount > customers.length * 0.4) {
-    recommendations.push("Low engagement levels. Consider reducing stamps required for rewards or adding bonus stamp promotions.")
-  }
-  
-  return recommendations
-}
+    for (const location of locations) {
+      // Total customers for this location
+      const { count: totalCustomers } = await supabaseClient
+        .from('clients')
+        .select('*', { count: 'exact', head: true })
+        .eq('location_id', location.id)
 
-function processCohortData(cohorts: any[]): any {
-  // Group cohorts by month and create matrix
-  const cohortMap = new Map()
-  
-  cohorts.forEach(cohort => {
-    const key = cohort.cohort_month
-    if (!cohortMap.has(key)) {
-      cohortMap.set(key, {
-        cohortMonth: key,
-        periods: {}
+      // Active customers (last 30 days)
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      const { count: activeCustomers30d } = await supabaseClient
+        .from('stamps')
+        .select('client_id', { count: 'exact', head: true })
+        .eq('location_id', location.id)
+        .gte('created_at', thirtyDaysAgo)
+        .not('client_id', 'is', null)
+
+      // Stamps issued in date range
+      const { count: stampsIssued } = await supabaseClient
+        .from('stamps')
+        .select('*', { count: 'exact', head: true })
+        .eq('location_id', location.id)
+        .gte('created_at', dateRange.start_date)
+        .lte('created_at', dateRange.end_date)
+
+      // Rewards redeemed in date range
+      const { count: rewardsRedeemed } = await supabaseClient
+        .from('rewards')
+        .select('*', { count: 'exact', head: true })
+        .eq('location_id', location.id)
+        .gte('redeemed_at', dateRange.start_date)
+        .lte('redeemed_at', dateRange.end_date)
+
+      // Calculate growth rate for this location
+      const periodLength = new Date(dateRange.end_date).getTime() - new Date(dateRange.start_date).getTime()
+      const previousPeriodStart = new Date(new Date(dateRange.start_date).getTime() - periodLength).toISOString()
+      const previousPeriodEnd = dateRange.start_date
+
+      const { count: previousCustomers } = await supabaseClient
+        .from('clients')
+        .select('*', { count: 'exact', head: true })
+        .eq('location_id', location.id)
+        .gte('created_at', previousPeriodStart)
+        .lt('created_at', previousPeriodEnd)
+
+      const { count: currentCustomers } = await supabaseClient
+        .from('clients')
+        .select('*', { count: 'exact', head: true })
+        .eq('location_id', location.id)
+        .gte('created_at', dateRange.start_date)
+        .lte('created_at', dateRange.end_date)
+
+      const growthRate = previousCustomers > 0 
+        ? ((currentCustomers - previousCustomers) / previousCustomers) * 100 
+        : 0
+
+      // Calculate activity rate (active customers / total customers)
+      const activityRate = totalCustomers > 0 ? (activeCustomers30d / totalCustomers) * 100 : 0
+
+      breakdown.push({
+        location_id: location.id,
+        location_name: location.name,
+        address: location.address,
+        city: location.city,
+        state: location.state,
+        customers: totalCustomers || 0,
+        active_customers_30d: activeCustomers30d || 0,
+        stamps_issued: stampsIssued || 0,
+        rewards_redeemed: rewardsRedeemed || 0,
+        activity_rate: Math.round(activityRate * 100) / 100,
+        revenue_estimate: Math.round((stampsIssued || 0) * 1.5 * 100) / 100,
+        growth_rate: Math.round(growthRate * 100) / 100
       })
     }
-    cohortMap.get(key).periods[cohort.period_number] = {
-      customers: cohort.active_customers,
-      retentionRate: cohort.retention_rate
-    }
-  })
-  
-  return Array.from(cohortMap.values())
-}
 
-function calculateAverageRetention(cohorts: any[], periodNumber: number): number {
-  const relevantCohorts = cohorts.filter(c => c.period_number === periodNumber)
-  if (relevantCohorts.length === 0) return 0
-  
-  const avgRetention = relevantCohorts.reduce((sum, c) => sum + c.retention_rate, 0) / relevantCohorts.length
-  return Math.round(avgRetention * 100) / 100
-}
-
-function findBestCohort(cohorts: any[]): any {
-  if (!cohorts || cohorts.length === 0) return null
-  
-  const cohortPerformance = new Map()
-  
-  cohorts.forEach(cohort => {
-    const key = cohort.cohort_month
-    if (!cohortPerformance.has(key)) {
-      cohortPerformance.set(key, { month: key, avgRetention: 0, periods: 0 })
-    }
-    const perf = cohortPerformance.get(key)
-    perf.avgRetention += cohort.retention_rate
-    perf.periods += 1
-  })
-  
-  let bestCohort = null
-  let bestRetention = 0
-  
-  for (const [month, perf] of cohortPerformance) {
-    const avgRetention = perf.avgRetention / perf.periods
-    if (avgRetention > bestRetention) {
-      bestRetention = avgRetention
-      bestCohort = { month, avgRetention }
-    }
-  }
-  
-  return bestCohort
-}
-
-function analyzeRetentionTrends(cohorts: any[]): any {
-  // Analyze how retention changes over time periods
-  const trendData = {}
-  
-  for (let period = 0; period <= 12; period++) {
-    const periodCohorts = cohorts.filter(c => c.period_number === period)
-    if (periodCohorts.length > 0) {
-      trendData[period] = {
-        avgRetention: periodCohorts.reduce((sum, c) => sum + c.retention_rate, 0) / periodCohorts.length,
-        cohortCount: periodCohorts.length
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        data: breakdown,
+        date_range: dateRange
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
-    }
+    )
+
+  } catch (error) {
+    console.error('Location breakdown error:', error)
+    return new Response(
+      JSON.stringify({ 
+        error: 'Failed to fetch location breakdown', 
+        details: error.message 
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    )
   }
-  
-  return trendData
 }
 
-async function calculateCohortAnalysis(supabase: any, restaurantId: string, dateRange: any): Promise<any> {
-  // This would implement cohort calculation from raw customer data
-  // For now, return empty structure
-  return {
-    cohortMatrix: [],
-    insights: {
-      avgRetentionMonth1: 0,
-      avgRetentionMonth3: 0,
-      avgRetentionMonth6: 0,
-      bestPerformingCohort: null,
-      retentionTrends: {}
+async function handleTrendAnalysis(supabaseClient: any, clientId: string, dateRange: { start_date: string; end_date: string }) {
+  try {
+    // Get all locations for this client
+    const { data: locations, error: locationsError } = await supabaseClient
+      .from('locations')
+      .select('id')
+      .eq('client_id', clientId)
+
+    if (locationsError) {
+      throw new Error(`Failed to fetch locations: ${locationsError.message}`)
     }
+
+    const locationIds = locations.map((loc: any) => loc.id)
+
+    if (locationIds.length === 0) {
+      const emptyTrends: TrendData = {
+        monthly_growth: [],
+        reward_redemption_trends: [],
+        retention_cohorts: []
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          data: emptyTrends,
+          date_range: dateRange
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
+
+    // Generate monthly growth data
+    const monthlyGrowth = await generateMonthlyGrowth(supabaseClient, locationIds, dateRange)
+    
+    // Generate reward redemption trends
+    const redemptionTrends = await generateRedemptionTrends(supabaseClient, locationIds, dateRange)
+    
+    // Generate retention cohorts
+    const retentionCohorts = await generateRetentionCohorts(supabaseClient, locationIds, dateRange)
+
+    const trends: TrendData = {
+      monthly_growth: monthlyGrowth,
+      reward_redemption_trends: redemptionTrends,
+      retention_cohorts: retentionCohorts
+    }
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        data: trends,
+        date_range: dateRange
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    )
+
+  } catch (error) {
+    console.error('Trend analysis error:', error)
+    return new Response(
+      JSON.stringify({ 
+        error: 'Failed to fetch trend analysis', 
+        details: error.message 
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    )
   }
+}
+
+async function generateMonthlyGrowth(supabaseClient: any, locationIds: string[], dateRange: { start_date: string; end_date: string }) {
+  const monthlyData = []
+  const startDate = new Date(dateRange.start_date)
+  const endDate = new Date(dateRange.end_date)
+
+  // Generate data for each month in the range
+  for (let date = new Date(startDate); date <= endDate; date.setMonth(date.getMonth() + 1)) {
+    const monthStart = new Date(date.getFullYear(), date.getMonth(), 1).toISOString()
+    const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59).toISOString()
+    const monthLabel = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+
+    // New customers this month
+    const { count: newCustomers } = await supabaseClient
+      .from('clients')
+      .select('*', { count: 'exact', head: true })
+      .in('location_id', locationIds)
+      .gte('created_at', monthStart)
+      .lte('created_at', monthEnd)
+
+    // Stamps issued this month
+    const { count: stampsIssued } = await supabaseClient
+      .from('stamps')
+      .select('*', { count: 'exact', head: true })
+      .in('location_id', locationIds)
+      .gte('created_at', monthStart)
+      .lte('created_at', monthEnd)
+
+    // Rewards redeemed this month
+    const { count: rewardsRedeemed } = await supabaseClient
+      .from('rewards')
+      .select('*', { count: 'exact', head: true })
+      .in('location_id', locationIds)
+      .gte('redeemed_at', monthStart)
+      .lte('redeemed_at', monthEnd)
+
+    // Calculate growth rate compared to previous month
+    const prevMonthStart = new Date(date.getFullYear(), date.getMonth() - 1, 1).toISOString()
+    const prevMonthEnd = new Date(date.getFullYear(), date.getMonth(), 0, 23, 59, 59).toISOString()
+
+    const { count: prevMonthCustomers } = await supabaseClient
+      .from('clients')
+      .select('*', { count: 'exact', head: true })
+      .in('location_id', locationIds)
+      .gte('created_at', prevMonthStart)
+      .lte('created_at', prevMonthEnd)
+
+    const growthRate = prevMonthCustomers > 0 
+      ? ((newCustomers - prevMonthCustomers) / prevMonthCustomers) * 100 
+      : 0
+
+    monthlyData.push({
+      month: monthLabel,
+      new_customers: newCustomers || 0,
+      stamps_issued: stampsIssued || 0,
+      rewards_redeemed: rewardsRedeemed || 0,
+      revenue_estimate: Math.round((stampsIssued || 0) * 1.5 * 100) / 100,
+      growth_rate: Math.round(growthRate * 100) / 100
+    })
+  }
+
+  return monthlyData
+}
+
+async function generateRedemptionTrends(supabaseClient: any, locationIds: string[], dateRange: { start_date: string; end_date: string }) {
+  const redemptionData = []
+  const startDate = new Date(dateRange.start_date)
+  const endDate = new Date(dateRange.end_date)
+
+  for (let date = new Date(startDate); date <= endDate; date.setMonth(date.getMonth() + 1)) {
+    const monthStart = new Date(date.getFullYear(), date.getMonth(), 1).toISOString()
+    const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59).toISOString()
+    const monthLabel = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+
+    const { count: totalStamps } = await supabaseClient
+      .from('stamps')
+      .select('*', { count: 'exact', head: true })
+      .in('location_id', locationIds)
+      .gte('created_at', monthStart)
+      .lte('created_at', monthEnd)
+
+    const { count: totalRewards } = await supabaseClient
+      .from('rewards')
+      .select('*', { count: 'exact', head: true })
+      .in('location_id', locationIds)
+      .gte('redeemed_at', monthStart)
+      .lte('redeemed_at', monthEnd)
+
+    const redemptionRate = totalStamps > 0 ? (totalRewards / totalStamps) * 100 : 0
+
+    redemptionData.push({
+      month: monthLabel,
+      redemption_rate: Math.round(redemptionRate * 100) / 100,
+      total_rewards: totalRewards || 0,
+      total_stamps: totalStamps || 0
+    })
+  }
+
+  return redemptionData
+}
+
+async function generateRetentionCohorts(supabaseClient: any, locationIds: string[], dateRange: { start_date: string; end_date: string }) {
+  const cohortData = []
+  const startDate = new Date(dateRange.start_date)
+  const endDate = new Date(dateRange.end_date)
+
+  // Generate cohorts for each month
+  for (let date = new Date(startDate); date <= endDate; date.setMonth(date.getMonth() + 1)) {
+    const cohortStart = new Date(date.getFullYear(), date.getMonth(), 1).toISOString()
+    const cohortEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59).toISOString()
+    const cohortLabel = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+
+    // Get customers acquired in this cohort month
+    const { data: cohortCustomers, error } = await supabaseClient
+      .from('clients')
+      .select('id, created_at')
+      .in('location_id', locationIds)
+      .gte('created_at', cohortStart)
+      .lte('created_at', cohortEnd)
+
+    if (error || !cohortCustomers || cohortCustomers.length === 0) {
+      continue
+    }
+
+    const customersAcquired = cohortCustomers.length
+    const customerIds = cohortCustomers.map((c: any) => c.id)
+
+    // Calculate retention for different periods
+    const retentionPeriods = [1, 3, 6, 12] // months
+    const retentionRates: { [key: string]: number } = {}
+
+    for (const months of retentionPeriods) {
+      const retentionStart = new Date(date.getFullYear(), date.getMonth() + months, 1).toISOString()
+      const retentionEnd = new Date(date.getFullYear(), date.getMonth() + months + 1, 0, 23, 59, 59).toISOString()
+
+      // Check if retention period is in the future
+      if (new Date(retentionStart) > new Date()) {
+        retentionRates[`month_${months}_retention`] = 0
+        continue
+      }
+
+      // Count customers who were active in the retention period
+      const { count: activeCustomers } = await supabaseClient
+        .from('stamps')
+        .select('client_id', { count: 'exact', head: true })
+        .in('client_id', customerIds)
+        .in('location_id', locationIds)
+        .gte('created_at', retentionStart)
+        .lte('created_at', retentionEnd)
+
+      const retentionRate = customersAcquired > 0 ? (activeCustomers / customersAcquired) * 100 : 0
+      retentionRates[`month_${months}_retention`] = Math.round(retentionRate * 100) / 100
+    }
+
+    cohortData.push({
+      cohort_month: cohortLabel,
+      customers_acquired: customersAcquired,
+      month_1_retention: retentionRates.month_1_retention || 0,
+      month_3_retention: retentionRates.month_3_retention || 0,
+      month_6_retention: retentionRates.month_6_retention || 0,
+      month_12_retention: retentionRates.month_12_retention || 0
+    })
+  }
+
+  return cohortData
 } 

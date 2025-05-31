@@ -36,6 +36,7 @@ export interface UserRoleData {
   isLoading: boolean
   clientName?: string
   restaurantName?: string
+  isViewingAsAdmin?: boolean        // New flag to indicate super admin is viewing client dashboard
 }
 
 export function useUserRole(): UserRoleData {
@@ -66,9 +67,112 @@ export function useUserRole(): UserRoleData {
       }
 
       try {
+        // Check if super admin is viewing a client dashboard
+        const isAdminContext = sessionStorage.getItem('zerion_admin_context') === 'true'
+        const tempRole = sessionStorage.getItem('temp_role') as UserRole
+        const viewingClient = sessionStorage.getItem('viewing_client')
+        const tempClientName = sessionStorage.getItem('temp_client_name')
+
+        // Check if client HQ is viewing a location dashboard
+        const isLocationContext = sessionStorage.getItem('galletti_hq_context') === 'true'
+        const viewingLocation = sessionStorage.getItem('viewing_location')
+        const tempLocationName = sessionStorage.getItem('temp_location_name')
+        const tempLocationId = sessionStorage.getItem('temp_location_id')
+
+        // Debug logging
+        console.log('Role detection debug:', {
+          isLocationContext,
+          tempRole,
+          viewingLocation,
+          tempLocationName,
+          tempLocationId,
+          userEmail: user.email
+        })
+
         // Check if user is ZerionCore admin (platform owner)
         const zerionAdminEmails = ['admin@zerioncore.com', 'platform@zerioncore.com', 'owner@zerioncore.com', 'martin@zerionstudio.com']
-        if (zerionAdminEmails.includes(user.email || '')) {
+        const isZerionAdmin = zerionAdminEmails.includes(user.email || '')
+
+        // Check if user is Galletti HQ
+        const gallettiHQEmails = ['admin@galletti.com', 'corporate@galletti.com', 'hq@galletti.com']
+        const isGallettiHQ = gallettiHQEmails.includes(user.email || '')
+
+        // Handle location view context (client HQ viewing location) - CHECK THIS FIRST
+        if (isLocationContext && tempRole === 'location_staff' && (isGallettiHQ || isZerionAdmin)) {
+          console.log('Detected location context, switching to location staff view')
+          setRoleData({
+            role: 'location_staff',
+            permissions: {
+              canViewAllClients: false,
+              canViewAllRestaurants: false,
+              canViewOwnRestaurant: false,
+              canViewLocationOnly: true,
+              canManageClients: true,
+              canAddStamps: true,
+              canRedeemRewards: true,
+              canViewAnalytics: false,
+              canManageLocations: false,
+              canAccessCorporateData: false,
+              canManagePlatform: false,
+              locationId: tempLocationId || 'location_1'
+            },
+            isLoading: false,
+            restaurantName: tempLocationName || 'Location Dashboard',
+            isViewingAsAdmin: true
+          })
+          return
+        }
+
+        if (isAdminContext && tempRole && isZerionAdmin) {
+          // Super admin is viewing a client dashboard
+          if (tempRole === 'galletti_hq') {
+            setRoleData({
+              role: 'galletti_hq',
+              permissions: {
+                canViewAllClients: false,
+                canViewAllRestaurants: true,
+                canViewOwnRestaurant: false,
+                canViewLocationOnly: false,
+                canManageClients: false,
+                canAddStamps: false,
+                canRedeemRewards: false,
+                canViewAnalytics: true,
+                canManageLocations: true,
+                canAccessCorporateData: true,
+                canManagePlatform: false,
+                clientId: 'galletti'
+              },
+              isLoading: false,
+              clientName: 'Galletti Restaurant Group',
+              isViewingAsAdmin: true
+            })
+            return
+          } else if (tempRole === 'restaurant_owner') {
+            setRoleData({
+              role: 'restaurant_owner',
+              permissions: {
+                canViewAllClients: false,
+                canViewAllRestaurants: false,
+                canViewOwnRestaurant: true,
+                canViewLocationOnly: false,
+                canManageClients: true,
+                canAddStamps: true,
+                canRedeemRewards: true,
+                canViewAnalytics: true,
+                canManageLocations: true,
+                canAccessCorporateData: false,
+                canManagePlatform: false,
+                restaurantId: 'demo_restaurant'
+              },
+              isLoading: false,
+              restaurantName: tempClientName || 'Demo Restaurant',
+              isViewingAsAdmin: true
+            })
+            return
+          }
+        }
+
+        if (isZerionAdmin) {
           setRoleData({
             role: 'zerion_admin',
             permissions: {
@@ -91,7 +195,6 @@ export function useUserRole(): UserRoleData {
         }
 
         // Check if user is Galletti HQ
-        const gallettiHQEmails = ['admin@galletti.com', 'corporate@galletti.com', 'hq@galletti.com']
         if (gallettiHQEmails.includes(user.email || '')) {
           setRoleData({
             role: 'galletti_hq',
@@ -187,6 +290,46 @@ export function getRoleDisplayName(role: UserRole): string {
   }
   
   return roleNames[role] || 'Staff'
+}
+
+export function returnToPlatform(): void {
+  // Clear temporary role data and return to platform
+  sessionStorage.removeItem('zerion_admin_context')
+  sessionStorage.removeItem('temp_role')
+  sessionStorage.removeItem('viewing_client')
+  sessionStorage.removeItem('temp_client_name')
+  sessionStorage.removeItem('galletti_hq_context')
+  sessionStorage.removeItem('viewing_location')
+  sessionStorage.removeItem('temp_location_name')
+  sessionStorage.removeItem('temp_location_id')
+  sessionStorage.removeItem('temp_restaurant_id')
+  window.location.reload()
+}
+
+export function returnToHQ(): void {
+  // Clear location context and return to client HQ
+  sessionStorage.removeItem('galletti_hq_context')
+  sessionStorage.removeItem('temp_role')
+  sessionStorage.removeItem('viewing_location')
+  sessionStorage.removeItem('temp_location_name')
+  sessionStorage.removeItem('temp_location_id')
+  sessionStorage.removeItem('temp_restaurant_id')
+  window.location.reload()
+}
+
+export function switchToLocationView(locationData: {
+  locationId: string
+  locationName: string
+  restaurantId: string
+  role: UserRole
+}): void {
+  // Set session storage for location view context
+  sessionStorage.setItem('galletti_hq_context', 'true')
+  sessionStorage.setItem('temp_role', 'location_staff')
+  sessionStorage.setItem('viewing_location', locationData.locationId)
+  sessionStorage.setItem('temp_location_name', locationData.locationName)
+  sessionStorage.setItem('temp_location_id', locationData.locationId)
+  sessionStorage.setItem('temp_restaurant_id', locationData.restaurantId)
 }
 
 export function getAvailableTabs(role: UserRole): string[] {

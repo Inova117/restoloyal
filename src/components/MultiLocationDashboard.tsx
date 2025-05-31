@@ -159,99 +159,10 @@ export default function MultiLocationDashboard() {
       // Simulate loading locations data since Edge Functions don't exist
       await new Promise(resolve => setTimeout(resolve, 1000))
       
-      const simulatedLocations: Location[] = [
-        {
-          id: '1',
-          restaurant_id: restaurantId,
-          name: 'Downtown Location',
-          address: '123 Main Street',
-          city: 'New York',
-          state: 'NY',
-          zip_code: '10001',
-          country: 'USA',
-          phone: '+1 (555) 123-4567',
-          email: 'downtown@restaurant.com',
-          latitude: 40.7128,
-          longitude: -74.0060,
-          stamps_required: 10,
-          reward_description: 'Free appetizer after 10 stamps',
-          timezone: 'America/New_York',
-          operating_hours: { monday: '9:00-22:00', tuesday: '9:00-22:00' },
-          is_active: true,
-          is_primary: true,
-          logo_url: '/logos/downtown.png',
-          brand_color: '#3B82F6',
-          custom_settings: {},
-          created_at: '2023-01-15T00:00:00Z',
-          updated_at: new Date().toISOString(),
-          location_managers: [{ count: 3 }],
-          clients: [{ count: 245 }]
-        },
-        {
-          id: '2',
-          restaurant_id: restaurantId,
-          name: 'Uptown Branch',
-          address: '456 Broadway',
-          city: 'New York',
-          state: 'NY',
-          zip_code: '10025',
-          country: 'USA',
-          phone: '+1 (555) 234-5678',
-          email: 'uptown@restaurant.com',
-          latitude: 40.7831,
-          longitude: -73.9712,
-          stamps_required: 10,
-          reward_description: 'Free dessert after 10 stamps',
-          timezone: 'America/New_York',
-          operating_hours: { monday: '8:00-21:00', tuesday: '8:00-21:00' },
-          is_active: true,
-          is_primary: false,
-          logo_url: '/logos/uptown.png',
-          brand_color: '#10B981',
-          custom_settings: {},
-          created_at: '2023-02-20T00:00:00Z',
-          updated_at: new Date().toISOString(),
-          location_managers: [{ count: 2 }],
-          clients: [{ count: 189 }]
-        },
-        {
-          id: '3',
-          restaurant_id: restaurantId,
-          name: 'Westside Outlet',
-          address: '789 West End Ave',
-          city: 'New York',
-          state: 'NY',
-          zip_code: '10025',
-          country: 'USA',
-          phone: '+1 (555) 345-6789',
-          email: 'westside@restaurant.com',
-          latitude: 40.7589,
-          longitude: -73.9851,
-          stamps_required: 8,
-          reward_description: 'Free drink after 8 stamps',
-          timezone: 'America/New_York',
-          operating_hours: { monday: '10:00-20:00', tuesday: '10:00-20:00' },
-          is_active: true,
-          is_primary: false,
-          logo_url: '/logos/westside.png',
-          brand_color: '#F59E0B',
-          custom_settings: {},
-          created_at: '2023-03-10T00:00:00Z',
-          updated_at: new Date().toISOString(),
-          location_managers: [{ count: 2 }],
-          clients: [{ count: 156 }]
-        }
-      ]
+      // Clean locations data - ready for real data
+      const cleanLocations: Location[] = []
       
-      setLocations(simulatedLocations)
-      if (simulatedLocations.length > 0 && !selectedLocation) {
-        setSelectedLocation(simulatedLocations[0])
-      }
-      
-      toast({
-        title: "Locations Loaded",
-        description: "Multi-location data loaded successfully (simulated)",
-      })
+      setLocations(cleanLocations)
     } catch (error) {
       console.error('Error loading locations:', error)
       toast({
@@ -266,38 +177,10 @@ export default function MultiLocationDashboard() {
     try {
       await new Promise(resolve => setTimeout(resolve, 500))
       
-      const simulatedManagers: LocationManager[] = [
-        {
-          id: '1',
-          location_id: locationId,
-          user_id: 'user1',
-          restaurant_id: restaurantId,
-          name: 'John Smith',
-          email: 'john.smith@restaurant.com',
-          phone: '+1 (555) 111-2222',
-          role: 'manager',
-          permissions: { can_manage_staff: true, can_view_analytics: true },
-          is_active: true,
-          created_at: '2023-01-20T00:00:00Z',
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: '2',
-          location_id: locationId,
-          user_id: 'user2',
-          restaurant_id: restaurantId,
-          name: 'Sarah Johnson',
-          email: 'sarah.johnson@restaurant.com',
-          phone: '+1 (555) 222-3333',
-          role: 'staff',
-          permissions: { can_manage_staff: false, can_view_analytics: false },
-          is_active: true,
-          created_at: '2023-02-15T00:00:00Z',
-          updated_at: new Date().toISOString()
-        }
-      ]
+      // Clean managers data - ready for real data
+      const cleanManagers: LocationManager[] = []
       
-      setLocationManagers(simulatedManagers)
+      setLocationManagers(cleanManagers)
     } catch (error) {
       console.error('Error loading managers:', error)
     }
@@ -307,18 +190,19 @@ export default function MultiLocationDashboard() {
     try {
       await new Promise(resolve => setTimeout(resolve, 500))
       
-      const simulatedPerformance: LocationPerformance = {
-        total_customers: 245,
-        new_customers: 23,
-        returning_customers: 222,
-        stamps_issued: 1847,
-        rewards_redeemed: 89,
-        customer_visits: 1456,
-        average_stamps_per_visit: 1.3,
-        customer_retention_rate: 78.5
+      // Clean performance data - ready for real data
+      const cleanPerformance: LocationPerformance = {
+        total_customers: 0,
+        new_customers: 0,
+        returning_customers: 0,
+        stamps_issued: 0,
+        rewards_redeemed: 0,
+        customer_visits: 0,
+        average_stamps_per_visit: 0,
+        customer_retention_rate: 0
       }
       
-      setLocationPerformance(simulatedPerformance)
+      setLocationPerformance(cleanPerformance)
     } catch (error) {
       console.error('Error loading performance:', error)
     }
@@ -328,46 +212,19 @@ export default function MultiLocationDashboard() {
     try {
       await new Promise(resolve => setTimeout(resolve, 800))
       
-      const simulatedAnalytics: CrossLocationAnalytics = {
-        location_metrics: [
-          {
-            location_id: '1',
-            location_name: 'Downtown Location',
-            total_customers: 245,
-            recent_visits: 156,
-            unique_recent_customers: 134,
-            stamps_earned: 1847,
-            rewards_redeemed: 89
-          },
-          {
-            location_id: '2',
-            location_name: 'Uptown Branch',
-            total_customers: 189,
-            recent_visits: 123,
-            unique_recent_customers: 98,
-            stamps_earned: 1234,
-            rewards_redeemed: 67
-          },
-          {
-            location_id: '3',
-            location_name: 'Westside Outlet',
-            total_customers: 156,
-            recent_visits: 89,
-            unique_recent_customers: 76,
-            stamps_earned: 987,
-            rewards_redeemed: 45
-          }
-        ],
+      // Clean analytics data - ready for real data
+      const cleanAnalytics: CrossLocationAnalytics = {
+        location_metrics: [],
         cross_location_summary: {
-          total_locations: 3,
-          active_locations: 3,
-          mobile_customers: 67,
-          total_active_customers: 590,
-          mobility_rate: '11.4%'
+          total_locations: 0,
+          active_locations: 0,
+          mobile_customers: 0,
+          total_active_customers: 0,
+          mobility_rate: '0%'
         }
       }
       
-      setCrossLocationAnalytics(simulatedAnalytics)
+      setCrossLocationAnalytics(cleanAnalytics)
     } catch (error) {
       console.error('Error loading cross-location analytics:', error)
     }

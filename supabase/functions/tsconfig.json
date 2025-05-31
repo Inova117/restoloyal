@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "allowJs": true,
+    "lib": ["es2020", "dom"],
+    "strict": false,
+    "noImplicitAny": false,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "moduleResolution": "node",
+    "noResolve": false,
+    "downlevelIteration": true,
+    "typeRoots": ["./types.d.ts"],
+    "types": []
+  },
+  "include": ["./**/*.ts", "./types.d.ts"],
+  "exclude": ["node_modules"]
+} 

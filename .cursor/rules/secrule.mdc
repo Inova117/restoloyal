@@ -1,0 +1,87 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+name: security-production
+priority: 9500
+scope: production
+description: >
+  Enforce strict, modern security and compliance standards for all production apps. Block all unsafe practices, leaks, and insecure defaults by design.
+
+# ────────────────────────────────────────────────
+# 1. AUTHENTICATION & ACCESS
+# ────────────────────────────────────────────────
+auth:
+  - Use only battle-tested providers: Supabase Auth, Auth0, Clerk, Firebase Auth.
+  - Enforce Multi-Factor Authentication (MFA) for all admins.
+  - All sessions must use signed JWTs or secure, HttpOnly, SameSite cookies.
+  - Enforce RBAC and Row-Level Security (RLS) at the database layer.
+  - Never build or roll your own crypto or auth flows.
+
+# ────────────────────────────────────────────────
+# 2. SECRETS & ENVIRONMENT
+# ────────────────────────────────────────────────
+secrets:
+  - No hardcoded secrets, tokens, or credentials—ever.
+  - Store all secrets in a cloud secret manager (AWS/GCP/Azure/Vercel/Netlify Vault).
+  - Rotate all secrets and keys at least every 90 days.
+  - Never expose secrets in logs, errors, or console output.
+
+# ────────────────────────────────────────────────
+# 3. DATA SECURITY & PRIVACY
+# ────────────────────────────────────────────────
+data:
+  - All data in transit must use HTTPS (TLS 1.2+).
+  - Databases must be encrypted at rest (AES-256).
+  - Backups automated daily, and restores must be tested monthly.
+  - Implement audit logs for all user sign-ins, privilege changes, and critical actions.
+  - Comply with GDPR/CCPA for PII: enable data export, deletion, and consent management.
+
+# ────────────────────────────────────────────────
+# 4. DEPENDENCY & SUPPLY CHAIN SAFETY
+# ────────────────────────────────────────────────
+dependencies:
+  - Only install reviewed, trusted dependencies.
+  - No packages <100 weekly downloads or >12 months unmaintained.
+  - Run SCA (Dependabot, Snyk) and block deploys with known critical CVEs.
+  - Scan dependencies before every deployment.
+
+# ────────────────────────────────────────────────
+# 5. APPLICATION SECURITY
+# ────────────────────────────────────────────────
+appsec:
+  - Validate and sanitize all user input, frontend and backend.
+  - Escape output to prevent XSS, SQLi, and injection attacks.
+  - Strict Content Security Policy (CSP): no wildcards, allow only required sources.
+  - All API keys stored as environment variables; never in frontend code.
+  - No direct client-to-3rd-party API calls—use server proxy.
+  - Simulated data and demo banners for test environments only.
+
+# ────────────────────────────────────────────────
+# 6. MONITORING, LOGGING & INCIDENT RESPONSE
+# ────────────────────────────────────────────────
+monitoring:
+  - Real-time monitoring and alerting for auth events, errors, and suspicious activity.
+  - Mask or redact all PII and secrets in logs.
+  - WAF (Web Application Firewall) on all public APIs and admin routes.
+  - Documented incident response plan; reviewed and tested every 6 months.
+
+# ────────────────────────────────────────────────
+# 7. TESTING & COMPLIANCE
+# ────────────────────────────────────────────────
+testing:
+  - Run SAST/DAST (static/dynamic app security) on every PR and before deploy.
+  - Automated and manual pen-tests before launch and at least yearly.
+  - Compliance checks for regulated sectors (SOC2, HIPAA, PCI-DSS, etc.) where required.
+
+# ────────────────────────────────────────────────
+# 8. FAILURE MODES
+# ────────────────────────────────────────────────
+failure:
+  - All failures default to “fail closed” (never expose data or features by accident).
+  - All critical alerts must trigger notification to dev/ops team within 5 minutes.
+
+---
+

@@ -304,12 +304,28 @@ export default function ZerionPlatformDashboard({
 
     setLoading(true)
     try {
-      // Simulate API call with realistic delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
+      // Call our Edge Function to create client with user and tier 2 access
+      const { data, error } = await supabase.functions.invoke('create-client-with-user', {
+        body: {
+          name: newClient.name,
+          contactEmail: newClient.contactEmail,
+          contactPhone: newClient.contactPhone,
+          plan: newClient.plan
+        }
+      })
+
+      if (error) {
+        throw new Error(error.message || 'Failed to create client')
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to create client')
+      }
+
+      // Update local state with the new client
       const client: ClientData = {
-        id: Date.now().toString(),
-        name: newClient.name,
+        id: data.client.id,
+        name: data.client.name,
         logo: '🏢',
         plan: newClient.plan,
         restaurantCount: 0,
@@ -319,12 +335,12 @@ export default function ZerionPlatformDashboard({
         status: newClient.plan === 'trial' ? 'trial' : 'active',
         joinDate: new Date().toISOString(),
         lastActivity: new Date().toISOString(),
-        contactEmail: newClient.contactEmail,
+        contactEmail: data.client.contactEmail,
         contactPhone: newClient.contactPhone || '',
         growthRate: 0
       }
       
-      // Safely handle localStorage operations
+      // Update localStorage for persistence
       try {
         const existingClientsStr = localStorage.getItem('zerion_platform_clients')
         const existingClients = existingClientsStr ? JSON.parse(existingClientsStr) : []
@@ -341,37 +357,32 @@ export default function ZerionPlatformDashboard({
             totalClients: prev.totalClients + 1
           } : prev)
         }
-        
-        // Reset form and close dialog
-        setNewClient({
-          name: '',
-          contactEmail: '',
-          contactPhone: '',
-          plan: 'trial'
-        })
-        setShowAddClientDialog(false)
-
-        toast({
-          title: "Success",
-          description: `${client.name} has been added successfully!`
-        })
       } catch (storageError) {
-        console.error('Error saving to localStorage:', storageError)
-        toast({
-          title: "Warning",
-          description: "Client added but not persisted to storage",
-          variant: "destructive"
-        })
+        console.warn('Error updating localStorage:', storageError)
       }
+        
+      // Reset form and close dialog
+      setNewClient({
+        name: '',
+        contactEmail: '',
+        contactPhone: '',
+        plan: 'trial'
+      })
+      setShowAddClientDialog(false)
+
+      toast({
+        title: "🎉 Client Created Successfully!",
+        description: data.message
+      })
+
     } catch (error: any) {
       console.error('Error adding client:', error)
       toast({
-        title: "Error",
-        description: error?.message || "Failed to add client",
+        title: "Error Creating Client",
+        description: error?.message || "Failed to add client. Please check your permissions and try again.",
         variant: "destructive"
       })
     } finally {
-      // Always reset loading state
       setLoading(false)
     }
   }

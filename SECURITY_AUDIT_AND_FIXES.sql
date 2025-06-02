@@ -607,4 +607,124 @@ BEGIN
   RAISE NOTICE '8. Regular review and update of access permissions';
   RAISE NOTICE '';
   RAISE NOTICE '🔒 SECURITY AUDIT COMPLETE - PLATFORM SECURED 🔒';
+END $$;
+
+-- 🚨 SECURITY AUDIT AND IMMEDIATE FIXES
+-- This script will re-enable RLS and fix the policies correctly
+-- NEVER leave RLS disabled in production!
+
+-- Step 1: RE-ENABLE RLS IMMEDIATELY
+ALTER TABLE platform_admin_users ENABLE ROW LEVEL SECURITY;
+
+-- Step 2: Check current RLS policies on platform_admin_users
+SELECT 
+    schemaname,
+    tablename,
+    policyname,
+    permissive,
+    roles,
+    cmd,
+    qual,
+    with_check
+FROM pg_policies 
+WHERE tablename = 'platform_admin_users';
+
+-- Step 3: Drop existing problematic policies if they exist
+DROP POLICY IF EXISTS "Platform admins can manage all clients" ON platform_admin_users;
+DROP POLICY IF EXISTS "Users can view their own admin record" ON platform_admin_users;
+DROP POLICY IF EXISTS "Admin users can read admin table" ON platform_admin_users;
+
+-- Step 4: Create CORRECT RLS policies for platform_admin_users
+
+-- Policy 1: Allow authenticated users to read their own admin record
+CREATE POLICY "authenticated_users_can_read_own_admin_record" 
+ON platform_admin_users 
+FOR SELECT 
+TO authenticated 
+USING (user_id = auth.uid());
+
+-- Policy 2: Allow service role to do everything (for Edge Functions)
+CREATE POLICY "service_role_full_access" 
+ON platform_admin_users 
+FOR ALL 
+TO service_role 
+USING (true) 
+WITH CHECK (true);
+
+-- Policy 3: Allow platform admins to manage admin records
+CREATE POLICY "platform_admins_can_manage_admin_records" 
+ON platform_admin_users 
+FOR ALL 
+TO authenticated 
+USING (
+    EXISTS (
+        SELECT 1 FROM platform_admin_users pau 
+        WHERE pau.user_id = auth.uid() 
+        AND pau.status = 'active' 
+        AND pau.role IN ('platform_admin', 'super_admin', 'zerion_admin')
+    )
+) 
+WITH CHECK (
+    EXISTS (
+        SELECT 1 FROM platform_admin_users pau 
+        WHERE pau.user_id = auth.uid() 
+        AND pau.status = 'active' 
+        AND pau.role IN ('platform_admin', 'super_admin', 'zerion_admin')
+    )
+);
+
+-- Step 5: Verify the policies were created correctly
+SELECT 
+    schemaname,
+    tablename,
+    policyname,
+    permissive,
+    roles,
+    cmd,
+    qual,
+    with_check
+FROM pg_policies 
+WHERE tablename = 'platform_admin_users'
+ORDER BY policyname;
+
+-- Step 6: Test that your user can access their own record
+SELECT 
+    'Testing user access' as test_type,
+    pau.role,
+    pau.status,
+    pau.email
+FROM platform_admin_users pau
+WHERE pau.user_id = 'cc7b1b82-d8d1-4777-af56-e70ac54f62c6'::uuid;
+
+-- Step 7: Check if there are any other tables with disabled RLS
+SELECT 
+    schemaname,
+    tablename,
+    rowsecurity
+FROM pg_tables 
+WHERE schemaname = 'public' 
+AND rowsecurity = false;
+
+-- Step 8: Security verification checklist
+DO $$
+BEGIN
+    -- Check if RLS is enabled on critical tables
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_tables 
+        WHERE tablename = 'platform_admin_users' 
+        AND rowsecurity = true
+    ) THEN
+        RAISE EXCEPTION '🚨 CRITICAL: RLS is disabled on platform_admin_users!';
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_tables 
+        WHERE tablename = 'platform_clients' 
+        AND rowsecurity = true
+    ) THEN
+        RAISE EXCEPTION '🚨 CRITICAL: RLS is disabled on platform_clients!';
+    END IF;
+    
+    RAISE NOTICE '✅ RLS is properly enabled on critical tables';
+    RAISE NOTICE '✅ Security audit completed';
 END $$; 

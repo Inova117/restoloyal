@@ -96,4 +96,59 @@ EXPECTED SUCCESS RESPONSE:
 ✅ Ready to connect frontend!
 
 NEXT: Test the frontend connection and role detection!
-*/ 
+*/
+
+-- 🔍 QUICK FUNCTION TEST - IDENTIFY THE EXACT PROBLEM
+-- This will test if the issue is RLS or Edge Function logic
+
+-- Step 1: Test service_role access to platform_admin_users
+-- This should ALWAYS work regardless of RLS
+SET role service_role;
+SELECT 
+    'SERVICE_ROLE_TEST' as test_type,
+    pau.role,
+    pau.status,
+    pau.email
+FROM platform_admin_users pau
+WHERE pau.user_id = 'cc7b1b82-d8d1-4777-af56-e70ac54f62c6'::uuid;
+RESET role;
+
+-- Step 2: Test authenticated user access to platform_admin_users
+-- This might fail due to RLS policies
+SELECT 
+    'AUTHENTICATED_USER_TEST' as test_type,
+    pau.role,
+    pau.status,
+    pau.email
+FROM platform_admin_users pau
+WHERE pau.user_id = 'cc7b1b82-d8d1-4777-af56-e70ac54f62c6'::uuid;
+
+-- Step 3: Check what policies exist on platform_admin_users
+SELECT 
+    'CURRENT_POLICIES' as test_type,
+    policyname,
+    roles,
+    cmd
+FROM pg_policies 
+WHERE tablename = 'platform_admin_users'
+ORDER BY policyname;
+
+-- Step 4: Test if we can create a platform_client directly
+-- This tests if the issue is with platform_clients table
+INSERT INTO platform_clients (
+    name,
+    slug,
+    contact_email,
+    plan,
+    status
+) VALUES (
+    'TEST CLIENT - DELETE ME',
+    'test-client-delete-me',
+    'test@example.com',
+    'basic',
+    'active'
+)
+RETURNING id, name, slug;
+
+-- Step 5: Clean up test data
+DELETE FROM platform_clients WHERE slug = 'test-client-delete-me'; 

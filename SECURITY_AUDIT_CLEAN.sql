@@ -439,4 +439,201 @@ BEGIN
   RAISE NOTICE '• Input validation functions available';
   RAISE NOTICE '• Proper permission model enforced';
   RAISE NOTICE '';
+END $$;
+
+-- 🚨 SECURITY AUDIT CLEAN - ENABLE RLS ON ALL TABLES
+-- This script enables RLS on all remaining tables that don't have it
+
+-- Step 1: Enable RLS on all tables that currently have it disabled
+ALTER TABLE system_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE feature_toggles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE global_branding ENABLE ROW LEVEL SECURITY;
+ALTER TABLE platform_metrics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE platform_activity_log ENABLE ROW LEVEL SECURITY;
+
+-- Step 2: Create policies for system configuration tables
+-- Only platform admins can manage system config
+CREATE POLICY "platform_admins_can_manage_system_config" 
+ON system_config 
+FOR ALL 
+TO authenticated 
+USING (
+    EXISTS (
+        SELECT 1 FROM platform_admin_users pau 
+        WHERE pau.user_id = auth.uid() 
+        AND pau.status = 'active' 
+        AND pau.role IN ('platform_admin', 'super_admin', 'zerion_admin')
+    )
+);
+
+-- Service role full access for system operations
+CREATE POLICY "service_role_system_config_access" 
+ON system_config 
+FOR ALL 
+TO service_role 
+USING (true) 
+WITH CHECK (true);
+
+-- Step 3: Create policies for email templates
+CREATE POLICY "platform_admins_can_manage_email_templates" 
+ON email_templates 
+FOR ALL 
+TO authenticated 
+USING (
+    EXISTS (
+        SELECT 1 FROM platform_admin_users pau 
+        WHERE pau.user_id = auth.uid() 
+        AND pau.status = 'active' 
+        AND pau.role IN ('platform_admin', 'super_admin', 'zerion_admin')
+    )
+);
+
+CREATE POLICY "service_role_email_templates_access" 
+ON email_templates 
+FOR ALL 
+TO service_role 
+USING (true) 
+WITH CHECK (true);
+
+-- Step 4: Create policies for feature toggles
+CREATE POLICY "platform_admins_can_manage_feature_toggles" 
+ON feature_toggles 
+FOR ALL 
+TO authenticated 
+USING (
+    EXISTS (
+        SELECT 1 FROM platform_admin_users pau 
+        WHERE pau.user_id = auth.uid() 
+        AND pau.status = 'active' 
+        AND pau.role IN ('platform_admin', 'super_admin', 'zerion_admin')
+    )
+);
+
+CREATE POLICY "service_role_feature_toggles_access" 
+ON feature_toggles 
+FOR ALL 
+TO service_role 
+USING (true) 
+WITH CHECK (true);
+
+-- Step 5: Create policies for global branding
+CREATE POLICY "platform_admins_can_manage_global_branding" 
+ON global_branding 
+FOR ALL 
+TO authenticated 
+USING (
+    EXISTS (
+        SELECT 1 FROM platform_admin_users pau 
+        WHERE pau.user_id = auth.uid() 
+        AND pau.status = 'active' 
+        AND pau.role IN ('platform_admin', 'super_admin', 'zerion_admin')
+    )
+);
+
+CREATE POLICY "service_role_global_branding_access" 
+ON global_branding 
+FOR ALL 
+TO service_role 
+USING (true) 
+WITH CHECK (true);
+
+-- Step 6: Create policies for platform metrics
+CREATE POLICY "platform_admins_can_view_platform_metrics" 
+ON platform_metrics 
+FOR SELECT 
+TO authenticated 
+USING (
+    EXISTS (
+        SELECT 1 FROM platform_admin_users pau 
+        WHERE pau.user_id = auth.uid() 
+        AND pau.status = 'active' 
+        AND pau.role IN ('platform_admin', 'super_admin', 'zerion_admin')
+    )
+);
+
+CREATE POLICY "service_role_platform_metrics_access" 
+ON platform_metrics 
+FOR ALL 
+TO service_role 
+USING (true) 
+WITH CHECK (true);
+
+-- Step 7: Create policies for platform activity log
+CREATE POLICY "platform_admins_can_view_activity_log" 
+ON platform_activity_log 
+FOR SELECT 
+TO authenticated 
+USING (
+    EXISTS (
+        SELECT 1 FROM platform_admin_users pau 
+        WHERE pau.user_id = auth.uid() 
+        AND pau.status = 'active' 
+        AND pau.role IN ('platform_admin', 'super_admin', 'zerion_admin')
+    )
+);
+
+CREATE POLICY "service_role_activity_log_access" 
+ON platform_activity_log 
+FOR ALL 
+TO service_role 
+USING (true) 
+WITH CHECK (true);
+
+-- Step 8: Verify NO tables have RLS disabled
+SELECT 
+    'SECURITY CHECK' as check_type,
+    schemaname,
+    tablename,
+    rowsecurity
+FROM pg_tables 
+WHERE schemaname = 'public' 
+AND rowsecurity = false;
+
+-- Step 9: Verify platform_admin_users policies are working
+SELECT 
+    'POLICY CHECK' as check_type,
+    policyname,
+    roles,
+    cmd
+FROM pg_policies 
+WHERE tablename = 'platform_admin_users'
+ORDER BY policyname;
+
+-- Step 10: Test user access to platform_admin_users
+SELECT 
+    'USER ACCESS TEST' as test_type,
+    pau.role,
+    pau.status,
+    pau.email
+FROM platform_admin_users pau
+WHERE pau.user_id = 'cc7b1b82-d8d1-4777-af56-e70ac54f62c6'::uuid;
+
+-- Step 11: Final security verification
+DO $$
+BEGIN
+    -- Check if any tables still have RLS disabled
+    IF EXISTS (
+        SELECT 1 FROM pg_tables 
+        WHERE schemaname = 'public' 
+        AND rowsecurity = false
+        AND tablename NOT LIKE 'pg_%'
+    ) THEN
+        RAISE WARNING '⚠️  Some tables still have RLS disabled';
+    ELSE
+        RAISE NOTICE '✅ ALL TABLES HAVE RLS ENABLED';
+    END IF;
+    
+    -- Check if platform_admin_users has proper policies
+    IF EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'platform_admin_users'
+        AND policyname = 'service_role_full_access'
+    ) THEN
+        RAISE NOTICE '✅ SERVICE ROLE POLICY EXISTS FOR EDGE FUNCTIONS';
+    ELSE
+        RAISE WARNING '⚠️  Service role policy missing for Edge Functions';
+    END IF;
+    
+    RAISE NOTICE '🔒 SECURITY AUDIT COMPLETE - READY TO TEST EDGE FUNCTION';
 END $$; 

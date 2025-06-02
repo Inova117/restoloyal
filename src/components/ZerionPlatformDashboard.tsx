@@ -171,7 +171,7 @@ export default function ZerionPlatformDashboard({
     featureToggles: {
       referrals: true,
       pushNotifications: true,
-      digitalWallet: false,
+      digitalWallet: true, // Enable for Apple Wallet testing
       aiAnalytics: true,
       geoPush: true,
       advancedReporting: true

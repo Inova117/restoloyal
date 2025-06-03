@@ -79,6 +79,9 @@ export function useUserRole(): UserRoleData {
         const tempLocationName = sessionStorage.getItem('temp_location_name')
         const tempLocationId = sessionStorage.getItem('temp_location_id')
 
+        // Check if user is forcing client admin view
+        const forceClientAdmin = sessionStorage.getItem('force_client_admin') === 'true'
+
         // Debug logging
         console.log('Role detection debug:', {
           isLocationContext,
@@ -86,8 +89,34 @@ export function useUserRole(): UserRoleData {
           viewingLocation,
           tempLocationName,
           tempLocationId,
-          userEmail: user.email
+          userEmail: user.email,
+          forceClientAdmin,
+          userMetadata: user.user_metadata
         })
+
+        // Force client admin view if requested and user has permission
+        if (forceClientAdmin && user.user_metadata?.role === 'client_admin') {
+          console.log('Forcing client admin view')
+          setRoleData({
+            role: 'galletti_hq',
+            permissions: {
+              canViewAllClients: false,
+              canViewAllRestaurants: true,
+              canViewOwnRestaurant: false,
+              canViewLocationOnly: false,
+              canManageClients: false,
+              canAddStamps: false,
+              canRedeemRewards: false,
+              canViewAnalytics: true,
+              canManageLocations: true,
+              canAccessCorporateData: true,
+              canManagePlatform: false
+            },
+            isLoading: false,
+            clientName: user.user_metadata?.client_name || 'Client Dashboard'
+          })
+          return
+        }
 
         // Check if user is ZerionCore admin (platform owner)
         const zerionAdminEmails = ['admin@zerioncore.com', 'platform@zerioncore.com', 'owner@zerioncore.com', 'martin@zerionstudio.com']
@@ -249,7 +278,70 @@ export function useUserRole(): UserRoleData {
           return
         }
 
-        // Default to location staff (would check location assignment in real app)
+        // Check if user has roles in user_roles table - general solution
+        try {
+          const userRolesResponse = await (supabase as any).from('user_roles').select('*').eq('user_id', user.id).eq('status', 'active')
+          const userRoles = userRolesResponse.data
+          
+          console.log('User roles query result:', userRolesResponse)
+          console.log('User metadata:', user.user_metadata)
+
+          if (userRoles && userRoles.length > 0) {
+            // Check if user has client_admin role
+            const clientAdminRole = userRoles.find((role: any) => role.role === 'client_admin')
+            
+            if (clientAdminRole) {
+              console.log('Found client_admin role in user_roles table')
+              setRoleData({
+                role: 'galletti_hq', // Use galletti_hq layout for client_admin
+                permissions: {
+                  canViewAllClients: false,
+                  canViewAllRestaurants: true,
+                  canViewOwnRestaurant: false,
+                  canViewLocationOnly: false,
+                  canManageClients: false,
+                  canAddStamps: false,
+                  canRedeemRewards: false,
+                  canViewAnalytics: true,
+                  canManageLocations: true,
+                  canAccessCorporateData: true,
+                  canManagePlatform: false
+                },
+                isLoading: false,
+                clientName: 'Client Dashboard'
+              })
+              return
+            }
+          }
+
+          // Fallback: Check user metadata for client_admin role
+          if (user.user_metadata?.role === 'client_admin') {
+            console.log('Found client_admin role in user metadata')
+            setRoleData({
+              role: 'galletti_hq', // Use galletti_hq layout for client_admin
+              permissions: {
+                canViewAllClients: false,
+                canViewAllRestaurants: true,
+                canViewOwnRestaurant: false,
+                canViewLocationOnly: false,
+                canManageClients: false,
+                canAddStamps: false,
+                canRedeemRewards: false,
+                canViewAnalytics: true,
+                canManageLocations: true,
+                canAccessCorporateData: true,
+                canManagePlatform: false
+              },
+              isLoading: false,
+              clientName: user.user_metadata?.client_name || 'Client Dashboard'
+            })
+            return
+          }
+        } catch (error) {
+          console.log('Error checking user roles:', error)
+        }
+
+        // Default to location staff
         setRoleData({
           role: 'location_staff',
           permissions: {
@@ -263,8 +355,7 @@ export function useUserRole(): UserRoleData {
             canViewAnalytics: false,
             canManageLocations: false,
             canAccessCorporateData: false,
-            canManagePlatform: false,
-            locationId: 'location_1' // Would be assigned in real app
+            canManagePlatform: false
           },
           isLoading: false
         })
@@ -303,6 +394,7 @@ export function returnToPlatform(): void {
   sessionStorage.removeItem('temp_location_name')
   sessionStorage.removeItem('temp_location_id')
   sessionStorage.removeItem('temp_restaurant_id')
+  sessionStorage.removeItem('force_client_admin')
   window.location.reload()
 }
 

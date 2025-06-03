@@ -297,6 +297,21 @@ const Index = () => {
                     <span>Back to HQ</span>
                   </Button>
                 )}
+                {user?.user_metadata?.role === 'client_admin' && (
+                  <Button 
+                    variant="default" 
+                    effect="glow" 
+                    onClick={() => {
+                      // Force switch to client admin view
+                      sessionStorage.setItem('force_client_admin', 'true')
+                      window.location.reload()
+                    }} 
+                    className="space-x-2"
+                  >
+                    <Crown className="w-4 h-4" />
+                    <span>Client Dashboard</span>
+                  </Button>
+                )}
                 <Button variant="outline" effect="lift" onClick={signOut} className="space-x-2">
                   <LogOut className="w-4 h-4" />
                   <span>Sign Out</span>

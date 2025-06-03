@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/integrations/supabase/client'
 import { switchToLocationView } from '@/hooks/useUserRole'
+import { useAuth } from '@/contexts/AuthContext'
 import StaffManager from './StaffManager'
 import CustomerManager from './CustomerManager'
 import { LocationManager } from './LocationManager'
@@ -46,7 +47,8 @@ import {
   Eye,
   ExternalLink,
   Download,
-  Send
+  Send,
+  ArrowLeft
 } from 'lucide-react'
 
 interface RestaurantLocation {
@@ -139,6 +141,7 @@ interface LocationStats {
 }
 
 export default function GallettiHQDashboard() {
+  const { user } = useAuth()
   const [locationStats, setLocationStats] = useState<LocationStats | null>(null)
   const [locations, setLocations] = useState<RestaurantLocation[]>([])
   const [loading, setLoading] = useState(false)
@@ -533,6 +536,19 @@ export default function GallettiHQDashboard() {
               <p className="text-sm text-gray-600">Restaurant chain management dashboard</p>
             </div>
             <div className="flex items-center gap-3">
+              {user?.user_metadata?.role === 'client_admin' && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    sessionStorage.removeItem('force_client_admin')
+                    window.location.reload()
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to Staff View
+                </Button>
+              )}
               <div className="text-right">
                 <p className="text-sm font-medium text-gray-900">Multi-Location Management</p>
                 <p className="text-xs text-gray-500">Tier 2 Access</p>

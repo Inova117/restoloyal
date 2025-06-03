@@ -530,6 +530,132 @@ export default function ZerionPlatformDashboard({
     )
   }
 
+  const handleDeleteClient = async (clientId: string, clientName: string) => {
+    if (!confirm(`¿Estás seguro de que quieres eliminar "${clientName}"? Esta acción no se puede deshacer.`)) {
+      return
+    }
+
+    try {
+      setLoading(true)
+      
+      // Remove from localStorage
+      const existingClientsStr = localStorage.getItem('zerion_platform_clients')
+      const existingClients = existingClientsStr ? JSON.parse(existingClientsStr) : []
+      const updatedClients = existingClients.filter((c: ClientData) => c.id !== clientId)
+      localStorage.setItem('zerion_platform_clients', JSON.stringify(updatedClients))
+      
+      // Update state
+      setClients(prev => prev.filter(c => c.id !== clientId))
+      
+      // Update metrics
+      if (metrics) {
+        setMetrics(prev => prev ? {
+          ...prev,
+          totalClients: prev.totalClients - 1
+        } : prev)
+      }
+      
+      // Close dialog
+      setSelectedClient(null)
+      
+      toast({
+        title: "Cliente Eliminado",
+        description: `${clientName} ha sido eliminado exitosamente.`,
+      })
+      
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar el cliente. Inténtalo de nuevo.",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSendInvitationEmail = async (clientEmail: string, clientName: string) => {
+    try {
+      setLoading(true)
+      
+      // Simulate sending invitation email
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      toast({
+        title: "Invitación Enviada",
+        description: `Se ha enviado una nueva invitación a ${clientEmail}`,
+      })
+      
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo enviar la invitación. Inténtalo de nuevo.",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const [editingClient, setEditingClient] = useState<ClientData | null>(null)
+  const [editForm, setEditForm] = useState({
+    name: '',
+    contactEmail: '',
+    contactPhone: '',
+    plan: 'trial' as 'trial' | 'business' | 'enterprise'
+  })
+
+  const handleEditClient = (client: ClientData) => {
+    setEditingClient(client)
+    setEditForm({
+      name: client.name,
+      contactEmail: client.contactEmail,
+      contactPhone: client.contactPhone,
+      plan: client.plan
+    })
+  }
+
+  const handleSaveClientEdit = async () => {
+    if (!editingClient) return
+
+    try {
+      setLoading(true)
+      
+      // Update localStorage
+      const existingClientsStr = localStorage.getItem('zerion_platform_clients')
+      const existingClients = existingClientsStr ? JSON.parse(existingClientsStr) : []
+      const updatedClients = existingClients.map((c: ClientData) => 
+        c.id === editingClient.id 
+          ? { ...c, ...editForm }
+          : c
+      )
+      localStorage.setItem('zerion_platform_clients', JSON.stringify(updatedClients))
+      
+      // Update state
+      setClients(prev => prev.map(c => 
+        c.id === editingClient.id 
+          ? { ...c, ...editForm }
+          : c
+      ))
+      
+      setEditingClient(null)
+      
+      toast({
+        title: "Cliente Actualizado",
+        description: `${editForm.name} ha sido actualizado exitosamente.`,
+      })
+      
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el cliente. Inténtalo de nuevo.",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Platform Overview Metrics */}
@@ -1078,44 +1204,49 @@ export default function ZerionPlatformDashboard({
                             <Button 
                               variant="outline" 
                               size="sm" 
+                              onClick={() => handleSendInvitationEmail(client.contactEmail, client.name)}
+                              disabled={loading}
                               style={{ 
-                                backgroundColor: '#ffffff', 
-                                color: '#374151', 
-                                border: '1px solid #d1d5db',
+                                backgroundColor: '#f0fdf4', 
+                                color: '#047857', 
+                                border: '1px solid #10b981',
                                 fontWeight: '600'
                               }}
-                              className="hover:bg-gray-50"
+                              className="hover:bg-green-100"
                             >
-                              <Mail className="h-4 w-4 mr-1" style={{ color: '#374151' }} />
-                              <span style={{ color: '#374151' }}>Send Email</span>
+                              <Send className="h-4 w-4 mr-1" style={{ color: '#047857' }} />
+                              <span style={{ color: '#047857' }}>Send Invitation</span>
                             </Button>
                             <Button 
                               variant="outline" 
                               size="sm" 
+                              onClick={() => handleEditClient(client)}
                               style={{ 
-                                backgroundColor: '#ffffff', 
-                                color: '#374151', 
-                                border: '1px solid #d1d5db',
+                                backgroundColor: '#fef3c7', 
+                                color: '#d97706', 
+                                border: '1px solid #f59e0b',
                                 fontWeight: '600'
                               }}
-                              className="hover:bg-gray-50"
+                              className="hover:bg-yellow-100"
                             >
-                              <Edit className="h-4 w-4 mr-1" style={{ color: '#374151' }} />
-                              <span style={{ color: '#374151' }}>Edit Details</span>
+                              <Edit className="h-4 w-4 mr-1" style={{ color: '#d97706' }} />
+                              <span style={{ color: '#d97706' }}>Edit Details</span>
                             </Button>
                             <Button 
                               variant="outline" 
                               size="sm" 
+                              onClick={() => handleDeleteClient(client.id, client.name)}
+                              disabled={loading}
                               style={{ 
-                                backgroundColor: '#ffffff', 
-                                color: '#374151', 
-                                border: '1px solid #d1d5db',
+                                backgroundColor: '#fef2f2', 
+                                color: '#dc2626', 
+                                border: '1px solid #ef4444',
                                 fontWeight: '600'
                               }}
-                              className="hover:bg-gray-50"
+                              className="hover:bg-red-100"
                             >
-                              <BarChart3 className="h-4 w-4 mr-1" style={{ color: '#374151' }} />
-                              <span style={{ color: '#374151' }}>View Analytics</span>
+                              <Trash2 className="h-4 w-4 mr-1" style={{ color: '#dc2626' }} />
+                              <span style={{ color: '#dc2626' }}>Delete Client</span>
                             </Button>
                           </div>
                         </CardContent>
@@ -2336,6 +2467,72 @@ export default function ZerionPlatformDashboard({
               </div>
             </TabsContent>
           </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Client Dialog */}
+      <Dialog open={!!editingClient} onOpenChange={() => setEditingClient(null)}>
+        <DialogContent className="max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-gray-900">Edit Client</DialogTitle>
+            <DialogDescription className="text-gray-600">
+              Update client information and settings
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit_client_name" className="text-gray-700">Restaurant Chain Name *</Label>
+              <Input
+                id="edit_client_name"
+                value={editForm.name}
+                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g., Pizza Palace International"
+                className="bg-white border-gray-300 text-gray-900"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_contact_email" className="text-gray-700">Contact Email *</Label>
+              <Input
+                id="edit_contact_email"
+                type="email"
+                value={editForm.contactEmail}
+                onChange={(e) => setEditForm(prev => ({ ...prev, contactEmail: e.target.value }))}
+                placeholder="admin@restaurant.com"
+                className="bg-white border-gray-300 text-gray-900"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_contact_phone" className="text-gray-700">Contact Phone</Label>
+              <Input
+                id="edit_contact_phone"
+                value={editForm.contactPhone}
+                onChange={(e) => setEditForm(prev => ({ ...prev, contactPhone: e.target.value }))}
+                placeholder="+1 (555) 123-4567"
+                className="bg-white border-gray-300 text-gray-900"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_plan" className="text-gray-700">Plan</Label>
+              <Select value={editForm.plan} onValueChange={(value: 'trial' | 'business' | 'enterprise') => setEditForm(prev => ({ ...prev, plan: value }))}>
+                <SelectTrigger className="bg-white border-gray-300 text-gray-900">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-gray-300">
+                  <SelectItem value="trial" className="text-gray-900">Trial (30 days free)</SelectItem>
+                  <SelectItem value="business" className="text-gray-900">Business ($99/month)</SelectItem>
+                  <SelectItem value="enterprise" className="text-gray-900">Enterprise ($299/month)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2 pt-4">
+              <Button onClick={handleSaveClientEdit} disabled={loading} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
+                {loading ? 'Saving...' : 'Save Changes'}
+              </Button>
+              <Button variant="outline" onClick={() => setEditingClient(null)} className="bg-white border-gray-300 text-gray-700 hover:bg-gray-50">
+                Cancel
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

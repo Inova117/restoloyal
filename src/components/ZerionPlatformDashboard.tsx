@@ -132,6 +132,15 @@ export default function ZerionPlatformDashboard({
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [planFilter, setPlanFilter] = useState<string>('all')
   
+  // Edit client states
+  const [editingClient, setEditingClient] = useState<ClientData | null>(null)
+  const [editForm, setEditForm] = useState({
+    name: '',
+    contactEmail: '',
+    contactPhone: '',
+    plan: 'trial' as 'trial' | 'business' | 'enterprise'
+  })
+  
   // New client form state
   const [newClient, setNewClient] = useState({
     name: '',
@@ -596,14 +605,6 @@ export default function ZerionPlatformDashboard({
       setLoading(false)
     }
   }
-
-  const [editingClient, setEditingClient] = useState<ClientData | null>(null)
-  const [editForm, setEditForm] = useState({
-    name: '',
-    contactEmail: '',
-    contactPhone: '',
-    plan: 'trial' as 'trial' | 'business' | 'enterprise'
-  })
 
   const handleEditClient = (client: ClientData) => {
     setEditingClient(client)

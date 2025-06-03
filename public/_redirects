@@ -1,0 +1,19 @@
+# Netlify _redirects file for React SPA with client-side routing
+# This ensures all routes are handled by React Router
+
+# Handle Supabase auth callbacks specifically
+/auth/callback    /index.html   200
+/auth/*           /index.html   200
+
+# Handle all other client-side routes
+/*                /index.html   200
+
+# Optional: Handle API routes if you have any (uncomment if needed)
+# /api/*           https://your-api-domain.com/api/:splat  200
+
+# Optional: Handle specific file extensions that should not be redirected
+# *.js             /404.html     404
+# *.css            /404.html     404
+# *.png            /404.html     404
+# *.jpg            /404.html     404
+# *.svg            /404.html     404 

@@ -79,7 +79,7 @@ serve(async (req) => {
     }
 
     // Check if user has platform admin role
-    const { data: adminCheck, error: adminError } = await supabaseClient
+    const { data: adminCheck, error: adminError } = await supabaseAdmin
       .from('platform_admin_users')
       .select('role')
       .eq('user_id', requestingUser.id)

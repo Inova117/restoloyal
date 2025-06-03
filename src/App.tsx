@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import DebugInfo from '@/components/DebugInfo';
 import { initializeSecurity } from '@/lib/security';
 
 // Pages
@@ -15,8 +16,13 @@ const queryClient = new QueryClient();
 
 function App() {
   useEffect(() => {
-    // Initialize security measures when app starts
-    initializeSecurity();
+    // Initialize security measures when app starts (with error handling)
+    try {
+      initializeSecurity();
+    } catch (error) {
+      console.error('⚠️ Security initialization failed, continuing without some security features:', error);
+      // App continues to load even if security init fails
+    }
   }, []);
 
   return (
@@ -36,6 +42,7 @@ function App() {
           </Routes>
           </div>
           <Toaster />
+          <DebugInfo />
         </Router>
         </AuthProvider>
   </QueryClientProvider>

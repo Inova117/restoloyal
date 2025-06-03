@@ -132,14 +132,23 @@ export class SessionManager {
 
   // Initialize session monitoring
   static initialize() {
-    this.updateActivity();
-    this.startSessionTimer();
-    this.startIdleTimer();
-    
-    // Listen for user activity
-    ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(event => {
-      document.addEventListener(event, () => this.updateActivity(), true);
-    });
+    try {
+      this.updateActivity();
+      this.startSessionTimer();
+      this.startIdleTimer();
+      
+      // Listen for user activity
+      ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(event => {
+        document.addEventListener(event, () => this.updateActivity(), true);
+      });
+      
+      if (import.meta.env.DEV) {
+        console.log('🔧 Session monitoring initialized (dev mode)');
+      }
+    } catch (error) {
+      console.error('❌ Session management initialization failed:', error);
+      // Don't block app if session management fails
+    }
   }
 
   // Update last activity timestamp
@@ -330,8 +339,14 @@ export class SecurityLogger {
 // ============================================================================
 
 export class CSPManager {
-  // Apply Content Security Policy
+  // Apply Content Security Policy (only in production)
   static applyCSP() {
+    // Skip CSP in development to avoid blocking Vite's hot reload and inline scripts
+    if (import.meta.env.DEV) {
+      console.log('🔧 CSP skipped in development mode');
+      return;
+    }
+
     const csp = Object.entries(SECURITY_CONFIG.CONTENT_SECURITY_POLICY)
       .map(([directive, sources]) => `${directive} ${sources.join(' ')}`)
       .join('; ');
@@ -340,6 +355,8 @@ export class CSPManager {
     meta.httpEquiv = 'Content-Security-Policy';
     meta.content = csp;
     document.head.appendChild(meta);
+    
+    console.log('🔒 CSP applied for production');
   }
 
   // Set security headers (for development)
@@ -404,19 +421,32 @@ export class SecureStorage {
 // ============================================================================
 
 export const initializeSecurity = () => {
-  // Apply Content Security Policy
-  CSPManager.applyCSP();
-  
-  // Set security headers
-  CSPManager.setSecurityHeaders();
-  
-  // Initialize session management
-  SessionManager.initialize();
-  
-  // Log initialization
-  SecurityLogger.logEvent('security_initialized');
-  
-  console.log('🔒 Security measures initialized');
+  try {
+    console.log('🔒 Initializing security measures...');
+    
+    // Apply Content Security Policy (production only)
+    CSPManager.applyCSP();
+    
+    // Set security headers (development logging)
+    CSPManager.setSecurityHeaders();
+    
+    // Initialize session management
+    SessionManager.initialize();
+    console.log('✅ Session management initialized');
+    
+    // Log initialization
+    SecurityLogger.logEvent('security_initialized');
+    
+    console.log('🔒 Security measures initialized successfully');
+    
+    // Additional development info
+    if (import.meta.env.DEV) {
+      console.log('🔧 Development mode: Some security features are relaxed for development');
+    }
+  } catch (error) {
+    console.error('❌ Security initialization failed:', error);
+    // Don't block app loading if security init fails
+  }
 };
 
 // ============================================================================

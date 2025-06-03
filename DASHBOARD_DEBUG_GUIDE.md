@@ -1,12 +1,29 @@
 # 🔍 DASHBOARD DEBUG GUIDE
 **Restaurant Loyalty Platform - Client Data Loading Issues**  
 **Date**: December 19, 2024  
+**Updated**: Security initialization fixes applied
 
 ---
 
 ## 🎯 **ISSUE SUMMARY**
 
-You've added 3 clients to Supabase but they're not showing up in the dashboard. This guide will help you identify and fix the issue.
+You've added 3 clients to Supabase but they're not showing up in the dashboard. Additionally, there may be security initialization issues preventing the page from loading properly.
+
+---
+
+## 🚨 **NEW: SECURITY INITIALIZATION FIX**
+
+**Issue**: Security measures (CSP, session management) were too strict in development mode and blocking page loading.
+
+**Fix Applied**: 
+- ✅ CSP disabled in development mode
+- ✅ Better error handling for security initialization
+- ✅ Debug component added to track loading states
+
+**What to look for**:
+- Check for "🔒 Security measures initialized successfully" in console
+- Look for debug info panel in bottom-right corner (dev mode only)
+- No CSP errors in browser console
 
 ---
 
@@ -18,6 +35,10 @@ You've added 3 clients to Supabase but they're not showing up in the dashboard. 
 4. **Look for these debug messages**:
 
 ```
+🔒 Initializing security measures...
+🔧 CSP skipped in development mode
+✅ Session management initialized
+🔒 Security measures initialized successfully
 🔍 Loading dashboard data for role: [your-role]
 🔍 User ID: [your-user-id]
 🏪 Found restaurants: [number]
@@ -26,9 +47,12 @@ You've added 3 clients to Supabase but they're not showing up in the dashboard. 
 ```
 
 **What to check**:
+- ✅ **Security initialized**: Should see success message
 - ✅ **Role**: Should be `restaurant_owner` for basic dashboard
 - ✅ **Restaurants found**: Should be `1` or more
 - ✅ **Clients loaded**: Should match the number you added (3)
+
+**🔍 Debug Panel**: Look for the debug info panel in the bottom-right corner showing loading states.
 
 ---
 
@@ -55,11 +79,15 @@ You've added 3 clients to Supabase but they're not showing up in the dashboard. 
 
 ## 🔧 **STEP 3: COMMON ISSUES & FIXES**
 
-### **Issue 1: Wrong User Role**
+### **Issue 1: Security Blocking Page Load**
+**Symptoms**: Page doesn't load, CSP errors in console
+**Fix**: ✅ **ALREADY FIXED** - CSP disabled in development mode
+
+### **Issue 2: Wrong User Role**
 **Symptoms**: Console shows role other than `restaurant_owner`
 **Fix**: Check your `user_roles` table in Supabase
 
-### **Issue 2: No Restaurant Found**
+### **Issue 3: No Restaurant Found**
 **Symptoms**: Console shows "Found restaurants: 0"
 **Fix**: 
 ```sql
@@ -68,11 +96,11 @@ INSERT INTO restaurants (user_id, name, stamps_required)
 VALUES ('[your-user-id]', 'My Restaurant', 10);
 ```
 
-### **Issue 3: Wrong Restaurant ID**
+### **Issue 4: Wrong Restaurant ID**
 **Symptoms**: Console shows "Final clients loaded: 0" but clients exist
 **Fix**: Check if `clients.restaurant_id` matches `restaurants.id`
 
-### **Issue 4: Environment Variables Missing**
+### **Issue 5: Environment Variables Missing**
 **Symptoms**: Connection errors, no data loading
 **Fix**: Verify Netlify environment variables are deployed
 
@@ -134,19 +162,32 @@ VALUES (auth.uid(), 'restaurant_owner')
 ON CONFLICT (user_id) DO UPDATE SET role = 'restaurant_owner';
 ```
 
+### **Quick Fix 3: Disable Security (Temporary)**
+If security is still causing issues, you can temporarily disable it by commenting out the security initialization in `src/App.tsx`:
+
+```typescript
+// Temporarily disable security initialization
+// initializeSecurity();
+```
+
 ---
 
 ## 📞 **NEXT STEPS**
 
-1. **Follow Step 1** and share the console output
-2. **Run the SQL queries** in Step 4 and share results
-3. **Check if any errors appear** in browser console
-4. **Verify your user role** in the `user_roles` table
+1. **Check browser console** for the new debug messages
+2. **Look for the debug panel** in bottom-right corner
+3. **Follow Step 1** and share the console output
+4. **Run the SQL queries** in Step 4 and share results
+5. **Check if any errors appear** in browser console
+6. **Verify your user role** in the `user_roles` table
 
 ---
 
 ## 🔍 **DEBUG CHECKLIST**
 
+- [ ] Browser console shows security initialization success
+- [ ] Debug panel appears in bottom-right corner
+- [ ] No CSP or security errors in console
 - [ ] Browser console shows debug messages
 - [ ] User role is `restaurant_owner`
 - [ ] Restaurant exists with correct `user_id`

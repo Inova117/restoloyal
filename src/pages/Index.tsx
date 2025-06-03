@@ -304,7 +304,11 @@ const Index = () => {
               </div>
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="content-section">
+            <Tabs 
+              value={availableTabs.includes(activeTab) ? activeTab : availableTabs[0]} 
+              onValueChange={setActiveTab} 
+              className="content-section"
+            >
               <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:grid-cols-none lg:flex">
                 {availableTabs.includes('pos') && (
                   <TabsTrigger value="pos" className="space-x-2 interactive-subtle">
@@ -413,7 +417,11 @@ const Index = () => {
               </div>
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="content-section">
+            <Tabs 
+              value={availableTabs.includes(activeTab) ? activeTab : availableTabs[0]} 
+              onValueChange={setActiveTab} 
+              className="content-section"
+            >
               <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:grid-cols-none lg:flex">
                 <TabsTrigger value="dashboard" className="space-x-2 interactive-subtle">
                   <Store className="w-4 h-4" />

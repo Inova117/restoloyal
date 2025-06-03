@@ -884,412 +884,239 @@ export default function ZerionPlatformDashboard({
           {/* Manage Client Modal */}
           {selectedClient && (
             <Dialog open={!!selectedClient} onOpenChange={() => setSelectedClient(null)}>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogContent 
+                className="max-w-2xl max-h-[80vh] overflow-y-auto"
+                style={{ 
+                  backgroundColor: '#ffffff', 
+                  color: '#000000',
+                  border: '2px solid #e5e7eb'
+                }}
+              >
                 {(() => {
                   const client = clients.find(c => c.id === selectedClient)
                   if (!client) return null
 
-                  const usageLimits = {
-                    trial: { stores: 5, users: 100, stamps: 1000 },
-                    business: { stores: 25, users: 1000, stamps: 10000 },
-                    enterprise: { stores: 100, users: 10000, stamps: 100000 }
-                  }
-
-                  const currentUsage = {
-                    stores: client.restaurantCount,
-                    users: client.customerCount,
-                    stamps: Math.floor(client.customerCount * 8.5) // Simulated stamp usage
-                  }
-
-                  const limits = usageLimits[client.plan]
-                  const planPricing = {
-                    trial: 0,
-                    business: 99,
-                    enterprise: 299
-                  }
-
                   return (
-                    <div className="space-y-6">
+                    <div className="space-y-6" style={{ backgroundColor: '#ffffff', color: '#000000' }}>
                       {/* Header */}
-                      <div className="flex items-center justify-between border-b pb-4">
+                      <div 
+                        className="flex items-center justify-between border-b pb-4"
+                        style={{ backgroundColor: '#ffffff', borderBottomColor: '#e5e7eb' }}
+                      >
                         <div className="flex items-center gap-3">
                           <Button 
                             variant="ghost" 
                             size="sm"
                             onClick={() => setSelectedClient(null)}
-                            className="text-gray-600 hover:text-gray-900"
+                            style={{ 
+                              backgroundColor: '#f9fafb', 
+                              color: '#374151',
+                              border: '1px solid #d1d5db'
+                            }}
+                            className="hover:bg-gray-200"
                           >
-                            <ArrowLeft className="w-4 h-4 mr-1" />
-                            Back to Clients
+                            <ArrowLeft className="w-4 h-4 mr-1" style={{ color: '#374151' }} />
+                            <span style={{ color: '#374151' }}>Back to Clients</span>
                           </Button>
-                          <div className="h-6 w-px bg-gray-300"></div>
+                          <div className="h-6 w-px" style={{ backgroundColor: '#d1d5db' }}></div>
                           <div>
-                            <h2 className="text-xl font-semibold">Manage Client</h2>
-                            <p className="text-sm text-gray-600">Client ID: {client.id}</p>
+                            <h2 style={{ color: '#111827', fontSize: '20px', fontWeight: '600' }}>
+                              Manage Client
+                            </h2>
+                            <p style={{ color: '#6b7280', fontSize: '14px' }}>
+                              Client ID: {client.id}
+                            </p>
                           </div>
                         </div>
-                        <Badge variant="outline" className="text-xs">
+                        <Badge 
+                          variant="outline" 
+                          style={{ 
+                            backgroundColor: '#ffffff', 
+                            color: '#374151', 
+                            border: '1px solid #d1d5db',
+                            fontSize: '12px'
+                          }}
+                        >
                           Last updated: {new Date().toLocaleDateString()}
                         </Badge>
                       </div>
 
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Client Info */}
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                              <Building2 className="h-5 w-5" />
-                              Client Information
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            <div className="flex items-center gap-4">
-                              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-3xl">
-                                {client.logo}
-                              </div>
-                              <div>
-                                <h3 className="font-semibold text-lg">{client.name}</h3>
-                                <p className="text-sm text-gray-600">Restaurant Chain</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  {getPlanBadge(client.plan)}
-                                  {getStatusBadge(client.status)}
-                                </div>
-                              </div>
+                      {/* Client Info */}
+                      <Card style={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb' }}>
+                        <CardHeader style={{ backgroundColor: '#ffffff' }}>
+                          <CardTitle style={{ color: '#111827', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Building2 className="h-5 w-5" style={{ color: '#2563eb' }} />
+                            <span style={{ color: '#111827' }}>Client Information</span>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent style={{ backgroundColor: '#ffffff' }}>
+                          <div className="flex items-center gap-4 mb-4">
+                            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-3xl">
+                              {client.logo}
                             </div>
-                            
-                            <div className="space-y-3 pt-4 border-t">
-                              <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Contact Email</span>
-                                <span className="text-sm font-medium">{client.contactEmail}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Contact Phone</span>
-                                <span className="text-sm font-medium">{client.contactPhone}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Join Date</span>
-                                <span className="text-sm font-medium">{new Date(client.joinDate).toLocaleDateString()}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Last Activity</span>
-                                <span className="text-sm font-medium">{new Date(client.lastActivity).toLocaleDateString()}</span>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        {/* Billing Information */}
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                              <DollarSign className="h-5 w-5" />
-                              Billing Information
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                              <div>
-                                <p className="font-medium">Current Plan</p>
-                                <p className="text-sm text-gray-600 capitalize">{client.plan} Plan</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="font-semibold text-lg">
-                                  {planPricing[client.plan] === 0 ? 'Free' : `$${planPricing[client.plan]}`}
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                  {planPricing[client.plan] === 0 ? 'Trial' : 'per month'}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="space-y-3">
-                              <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Stripe Status</span>
-                                <Badge className={client.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                                  {client.status === 'active' ? 'Active' : 'Inactive'}
-                                </Badge>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Monthly Rate</span>
-                                <span className="text-sm font-medium">
-                                  {formatCurrency(planPricing[client.plan])}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Next Billing</span>
-                                <span className="text-sm font-medium">
-                                  {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Total Revenue</span>
-                                <span className="text-sm font-medium text-green-600">
-                                  {formatCurrency(client.monthlyRevenue * 12)}
-                                </span>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      {/* Usage Limits and Current Usage */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Usage Limits */}
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                              <Shield className="h-5 w-5" />
-                              Usage Limits
-                            </CardTitle>
-                            <CardDescription>Plan limits for {client.plan} tier</CardDescription>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            <div className="grid grid-cols-3 gap-4">
-                              <div className="text-center p-3 bg-blue-50 rounded-lg">
-                                <div className="text-2xl font-bold text-blue-600">{limits.stores}</div>
-                                <p className="text-xs text-blue-700">Max Stores</p>
-                              </div>
-                              <div className="text-center p-3 bg-green-50 rounded-lg">
-                                <div className="text-2xl font-bold text-green-600">{formatNumber(limits.users)}</div>
-                                <p className="text-xs text-green-700">Max Users</p>
-                              </div>
-                              <div className="text-center p-3 bg-purple-50 rounded-lg">
-                                <div className="text-2xl font-bold text-purple-600">{formatNumber(limits.stamps)}</div>
-                                <p className="text-xs text-purple-700">Max Stamps/Month</p>
-                              </div>
-                            </div>
-
-                            <div className="pt-4 border-t">
-                              <h4 className="text-sm font-medium mb-3">Plan Features</h4>
-                              <div className="space-y-2 text-sm">
-                                {client.plan === 'trial' && (
-                                  <>
-                                    <div className="flex items-center gap-2">
-                                      <CheckCircle className="h-4 w-4 text-green-600" />
-                                      <span>Basic loyalty program</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <CheckCircle className="h-4 w-4 text-green-600" />
-                                      <span>Email support</span>
-                                    </div>
-                                  </>
-                                )}
-                                {client.plan === 'business' && (
-                                  <>
-                                    <div className="flex items-center gap-2">
-                                      <CheckCircle className="h-4 w-4 text-green-600" />
-                                      <span>Advanced analytics</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <CheckCircle className="h-4 w-4 text-green-600" />
-                                      <span>Priority support</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <CheckCircle className="h-4 w-4 text-green-600" />
-                                      <span>Custom branding</span>
-                                    </div>
-                                  </>
-                                )}
-                                {client.plan === 'enterprise' && (
-                                  <>
-                                    <div className="flex items-center gap-2">
-                                      <CheckCircle className="h-4 w-4 text-green-600" />
-                                      <span>White-label solution</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <CheckCircle className="h-4 w-4 text-green-600" />
-                                      <span>Dedicated support</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <CheckCircle className="h-4 w-4 text-green-600" />
-                                      <span>API access</span>
-                                    </div>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        {/* Current Usage */}
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                              <BarChart3 className="h-5 w-5" />
-                              Current Usage
-                            </CardTitle>
-                            <CardDescription>Real-time usage statistics</CardDescription>
-                          </CardHeader>
-                          <CardContent className="space-y-6">
-                            {/* Store Usage */}
                             <div>
-                              <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm font-medium">Stores</span>
-                                <span className="text-sm text-gray-600">
-                                  {currentUsage.stores} / {limits.stores}
-                                </span>
+                              <h3 style={{ color: '#111827', fontSize: '18px', fontWeight: '600' }}>
+                                {client.name}
+                              </h3>
+                              <p style={{ color: '#6b7280', fontSize: '14px' }}>Restaurant Chain</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                {getPlanBadge(client.plan)}
+                                {getStatusBadge(client.status)}
                               </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div 
-                                  className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
-                                  style={{ width: `${Math.min((currentUsage.stores / limits.stores) * 100, 100)}%` }}
-                                ></div>
-                              </div>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {((currentUsage.stores / limits.stores) * 100).toFixed(1)}% of limit used
+                            </div>
+                          </div>
+                          
+                          <div 
+                            className="grid grid-cols-2 gap-4 pt-4"
+                            style={{ borderTop: '1px solid #e5e7eb' }}
+                          >
+                            <div>
+                              <span style={{ color: '#6b7280', fontSize: '14px', fontWeight: '500' }}>
+                                Contact Email
+                              </span>
+                              <p style={{ color: '#111827', fontSize: '14px', fontWeight: '600' }}>
+                                {client.contactEmail}
                               </p>
                             </div>
-
-                            {/* User Usage */}
                             <div>
-                              <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm font-medium">Users</span>
-                                <span className="text-sm text-gray-600">
-                                  {formatNumber(currentUsage.users)} / {formatNumber(limits.users)}
-                                </span>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div 
-                                  className="bg-green-500 h-2 rounded-full transition-all duration-300" 
-                                  style={{ width: `${Math.min((currentUsage.users / limits.users) * 100, 100)}%` }}
-                                ></div>
-                              </div>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {((currentUsage.users / limits.users) * 100).toFixed(1)}% of limit used
+                              <span style={{ color: '#6b7280', fontSize: '14px', fontWeight: '500' }}>
+                                Contact Phone
+                              </span>
+                              <p style={{ color: '#111827', fontSize: '14px', fontWeight: '600' }}>
+                                {client.contactPhone}
                               </p>
                             </div>
-
-                            {/* Stamp Usage */}
                             <div>
-                              <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm font-medium">Stamps (This Month)</span>
-                                <span className="text-sm text-gray-600">
-                                  {formatNumber(currentUsage.stamps)} / {formatNumber(limits.stamps)}
-                                </span>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div 
-                                  className="bg-purple-500 h-2 rounded-full transition-all duration-300" 
-                                  style={{ width: `${Math.min((currentUsage.stamps / limits.stamps) * 100, 100)}%` }}
-                                ></div>
-                              </div>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {((currentUsage.stamps / limits.stamps) * 100).toFixed(1)}% of limit used
+                              <span style={{ color: '#6b7280', fontSize: '14px', fontWeight: '500' }}>
+                                Join Date
+                              </span>
+                              <p style={{ color: '#111827', fontSize: '14px', fontWeight: '600' }}>
+                                {new Date(client.joinDate).toLocaleDateString()}
                               </p>
                             </div>
-
-                            {/* Usage Alerts */}
-                            <div className="pt-4 border-t">
-                              <h4 className="text-sm font-medium mb-2">Usage Alerts</h4>
-                              {currentUsage.stores / limits.stores > 0.8 && (
-                                <div className="flex items-center gap-2 p-2 bg-yellow-50 rounded text-sm">
-                                  <AlertCircle className="h-4 w-4 text-yellow-600" />
-                                  <span className="text-yellow-800">Store limit approaching</span>
-                                </div>
-                              )}
-                              {currentUsage.users / limits.users > 0.8 && (
-                                <div className="flex items-center gap-2 p-2 bg-yellow-50 rounded text-sm">
-                                  <AlertCircle className="h-4 w-4 text-yellow-600" />
-                                  <span className="text-yellow-800">User limit approaching</span>
-                                </div>
-                              )}
-                              {currentUsage.stamps / limits.stamps > 0.8 && (
-                                <div className="flex items-center gap-2 p-2 bg-yellow-50 rounded text-sm">
-                                  <AlertCircle className="h-4 w-4 text-yellow-600" />
-                                  <span className="text-yellow-800">Stamp limit approaching</span>
-                                </div>
-                              )}
-                              {currentUsage.stores / limits.stores <= 0.8 && 
-                               currentUsage.users / limits.users <= 0.8 && 
-                               currentUsage.stamps / limits.stamps <= 0.8 && (
-                                <div className="flex items-center gap-2 p-2 bg-green-50 rounded text-sm">
-                                  <CheckCircle className="h-4 w-4 text-green-600" />
-                                  <span className="text-green-800">All usage within limits</span>
-                                </div>
-                              )}
+                            <div>
+                              <span style={{ color: '#6b7280', fontSize: '14px', fontWeight: '500' }}>
+                                Last Activity
+                              </span>
+                              <p style={{ color: '#111827', fontSize: '14px', fontWeight: '600' }}>
+                                {new Date(client.lastActivity).toLocaleDateString()}
+                              </p>
                             </div>
-                          </CardContent>
-                        </Card>
-                      </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Quick Stats */}
+                      <Card style={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb' }}>
+                        <CardHeader style={{ backgroundColor: '#ffffff' }}>
+                          <CardTitle style={{ color: '#111827', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <BarChart3 className="h-5 w-5" style={{ color: '#059669' }} />
+                            <span style={{ color: '#111827' }}>Quick Stats</span>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent style={{ backgroundColor: '#ffffff' }}>
+                          <div className="grid grid-cols-3 gap-4">
+                            <div 
+                              className="text-center p-3 rounded-lg"
+                              style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe' }}
+                            >
+                              <div style={{ color: '#2563eb', fontSize: '24px', fontWeight: '700' }}>
+                                {client.restaurantCount}
+                              </div>
+                              <p style={{ color: '#1d4ed8', fontSize: '12px', fontWeight: '600' }}>
+                                Restaurants
+                              </p>
+                            </div>
+                            <div 
+                              className="text-center p-3 rounded-lg"
+                              style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }}
+                            >
+                              <div style={{ color: '#059669', fontSize: '24px', fontWeight: '700' }}>
+                                {client.customerCount}
+                              </div>
+                              <p style={{ color: '#047857', fontSize: '12px', fontWeight: '600' }}>
+                                Customers
+                              </p>
+                            </div>
+                            <div 
+                              className="text-center p-3 rounded-lg"
+                              style={{ backgroundColor: '#faf5ff', border: '1px solid #d8b4fe' }}
+                            >
+                              <div style={{ color: '#7c3aed', fontSize: '24px', fontWeight: '700' }}>
+                                {formatCurrency(client.monthlyRevenue)}
+                              </div>
+                              <p style={{ color: '#6d28d9', fontSize: '12px', fontWeight: '600' }}>
+                                Monthly Revenue
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
 
                       {/* Actions */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2">
-                            <Settings className="h-5 w-5" />
-                            Client Management Actions
-                          </CardTitle>
-                          <CardDescription>Administrative actions for this client</CardDescription>
+                      <Card style={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb' }}>
+                        <CardHeader style={{ backgroundColor: '#ffffff' }}>
+                          <CardTitle style={{ color: '#111827' }}>Actions</CardTitle>
                         </CardHeader>
-                        <CardContent>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <CardContent style={{ backgroundColor: '#ffffff' }}>
+                          <div className="flex flex-wrap gap-2">
                             <Button 
                               variant="outline" 
-                              className="h-20 flex flex-col items-center justify-center gap-2 hover:bg-blue-50"
-                              onClick={() => {
-                                toast({
-                                  title: "Usage Reset",
-                                  description: "Monthly usage counters have been reset for this client."
-                                })
+                              size="sm"
+                              onClick={() => handleViewClientDashboard(client)}
+                              style={{ 
+                                backgroundColor: '#eff6ff', 
+                                color: '#1d4ed8', 
+                                border: '1px solid #3b82f6',
+                                fontWeight: '600'
                               }}
+                              className="hover:bg-blue-100"
                             >
-                              <RefreshCw className="h-5 w-5" />
-                              <span className="text-sm font-medium">Reset Usage</span>
-                              <span className="text-xs text-gray-500">Clear monthly counters</span>
+                              <Eye className="h-4 w-4 mr-1" style={{ color: '#1d4ed8' }} />
+                              <span style={{ color: '#1d4ed8' }}>View Dashboard</span>
                             </Button>
-
                             <Button 
                               variant="outline" 
-                              className="h-20 flex flex-col items-center justify-center gap-2 hover:bg-green-50"
-                              onClick={() => {
-                                toast({
-                                  title: "Plan Change",
-                                  description: "Plan change dialog would open here."
-                                })
+                              size="sm" 
+                              style={{ 
+                                backgroundColor: '#ffffff', 
+                                color: '#374151', 
+                                border: '1px solid #d1d5db',
+                                fontWeight: '600'
                               }}
+                              className="hover:bg-gray-50"
                             >
-                              <Crown className="h-5 w-5" />
-                              <span className="text-sm font-medium">Change Plan</span>
-                              <span className="text-xs text-gray-500">Upgrade or downgrade</span>
+                              <Mail className="h-4 w-4 mr-1" style={{ color: '#374151' }} />
+                              <span style={{ color: '#374151' }}>Send Email</span>
                             </Button>
-
                             <Button 
                               variant="outline" 
-                              className="h-20 flex flex-col items-center justify-center gap-2 hover:bg-red-50 text-red-600 border-red-200"
-                              onClick={() => {
-                                toast({
-                                  title: "Client Suspended",
-                                  description: `${client.name} has been suspended. They will receive an email notification.`,
-                                  variant: "destructive"
-                                })
+                              size="sm" 
+                              style={{ 
+                                backgroundColor: '#ffffff', 
+                                color: '#374151', 
+                                border: '1px solid #d1d5db',
+                                fontWeight: '600'
                               }}
+                              className="hover:bg-gray-50"
                             >
-                              <AlertCircle className="h-5 w-5" />
-                              <span className="text-sm font-medium">Suspend Client</span>
-                              <span className="text-xs text-gray-500">Temporarily disable access</span>
+                              <Edit className="h-4 w-4 mr-1" style={{ color: '#374151' }} />
+                              <span style={{ color: '#374151' }}>Edit Details</span>
                             </Button>
-                          </div>
-
-                          <div className="mt-6 pt-6 border-t">
-                            <h4 className="text-sm font-medium mb-3">Additional Actions</h4>
-                            <div className="flex flex-wrap gap-2">
-                              <Button variant="ghost" size="sm">
-                                <Mail className="h-4 w-4 mr-1" />
-                                Send Email
-                              </Button>
-                              <Button variant="ghost" size="sm">
-                                <Eye className="h-4 w-4 mr-1" />
-                                View Logs
-                              </Button>
-                              <Button variant="ghost" size="sm">
-                                <Edit className="h-4 w-4 mr-1" />
-                                Edit Details
-                              </Button>
-                              <Button variant="ghost" size="sm">
-                                <BarChart3 className="h-4 w-4 mr-1" />
-                                View Analytics
-                              </Button>
-                            </div>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              style={{ 
+                                backgroundColor: '#ffffff', 
+                                color: '#374151', 
+                                border: '1px solid #d1d5db',
+                                fontWeight: '600'
+                              }}
+                              className="hover:bg-gray-50"
+                            >
+                              <BarChart3 className="h-4 w-4 mr-1" style={{ color: '#374151' }} />
+                              <span style={{ color: '#374151' }}>View Analytics</span>
+                            </Button>
                           </div>
                         </CardContent>
                       </Card>

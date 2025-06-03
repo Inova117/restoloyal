@@ -248,11 +248,13 @@ serve(async (req) => {
     const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       contactEmail,
       {
-        redirectTo: `${req.headers.get('origin') || 'https://restaurantloyalty.netlify.app'}/auth/callback?client=${slug}`,
+        redirectTo: `${req.headers.get('origin') || 'https://restaurantloyalty.netlify.app'}/auth/callback?type=invitation&client=${slug}&email=${encodeURIComponent(contactEmail)}`,
         data: {
           client_name: name,
           role: 'client_admin',
-          invited_by: 'Platform Admin'
+          invited_by: 'Platform Admin',
+          invitation_type: 'client_admin',
+          client_slug: slug
         }
       }
     );

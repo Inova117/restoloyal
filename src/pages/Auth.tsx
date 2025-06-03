@@ -1,6 +1,5 @@
-
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,11 +7,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Store, Mail, Lock, User, Phone } from 'lucide-react';
+import { Store, Mail, Lock, User, Phone, Key, UserCheck } from 'lucide-react';
 
 const Auth = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Check if this is an invitation flow
+  const [isInvitation, setIsInvitation] = useState(false);
+  const [invitationEmail, setInvitationEmail] = useState('');
+  const [clientName, setClientName] = useState('');
   
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
@@ -25,6 +30,36 @@ const Auth = () => {
   const [ownerName, setOwnerName] = useState('');
   const [phone, setPhone] = useState('');
 
+  // Invitation form state
+  const [invitePassword, setInvitePassword] = useState('');
+  const [inviteConfirmPassword, setInviteConfirmPassword] = useState('');
+
+  useEffect(() => {
+    // Check for invitation parameters
+    const type = searchParams.get('type');
+    const email = searchParams.get('email');
+    const client = searchParams.get('client');
+    
+    if (type === 'invite' || type === 'invitation') {
+      setIsInvitation(true);
+      if (email) setInvitationEmail(email);
+      if (client) setClientName(client.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()));
+    }
+
+    // Handle Supabase auth state changes for invitations
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        toast({
+          title: "Welcome!",
+          description: "Successfully logged in to your dashboard",
+        });
+        navigate('/');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [searchParams, navigate]);
+
   const cleanupAuthState = () => {
     Object.keys(localStorage).forEach((key) => {
       if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
@@ -36,6 +71,43 @@ const Auth = () => {
         sessionStorage.removeItem(key);
       }
     });
+  };
+
+  const handleInvitationSetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      if (invitePassword !== inviteConfirmPassword) {
+        throw new Error('Passwords do not match');
+      }
+
+      if (invitePassword.length < 6) {
+        throw new Error('Password must be at least 6 characters long');
+      }
+
+      // Update the user's password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: invitePassword
+      });
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Password Set Successfully!",
+        description: `Welcome to ${clientName}. You can now access your dashboard.`,
+      });
+
+      navigate('/');
+    } catch (error: any) {
+      toast({
+        title: "Failed to set password",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -143,6 +215,108 @@ const Auth = () => {
     }
   };
 
+  // If this is an invitation, show the set password form
+  if (isInvitation) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="flex items-center justify-center mb-8">
+            <UserCheck className="w-12 h-12 text-green-600 mr-3" />
+            <div className="text-center">
+              <h1 className="text-3xl font-bold text-gray-900">Welcome to {clientName}</h1>
+              <p className="text-gray-600">Set your password to get started</p>
+            </div>
+          </div>
+
+          <Card className="bg-white shadow-lg border-0">
+            <CardHeader>
+              <CardTitle className="text-xl text-gray-900 flex items-center gap-2">
+                <Key className="w-5 h-5 text-green-600" />
+                Set Your Password
+              </CardTitle>
+              <CardDescription>
+                {invitationEmail ? `Setting up account for ${invitationEmail}` : 'Complete your account setup'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleInvitationSetPassword} className="space-y-4">
+                {invitationEmail && (
+                  <div className="space-y-2">
+                    <Label>Email Address</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <Input
+                        type="email"
+                        value={invitationEmail}
+                        disabled
+                        className="pl-10 bg-gray-50"
+                      />
+                    </div>
+                  </div>
+                )}
+                
+                <div className="space-y-2">
+                  <Label htmlFor="invite-password">New Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input
+                      id="invite-password"
+                      type="password"
+                      placeholder="Create a secure password"
+                      value={invitePassword}
+                      onChange={(e) => setInvitePassword(e.target.value)}
+                      className="pl-10"
+                      required
+                      minLength={6}
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="invite-confirm-password">Confirm Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input
+                      id="invite-confirm-password"
+                      type="password"
+                      placeholder="Confirm your password"
+                      value={inviteConfirmPassword}
+                      onChange={(e) => setInviteConfirmPassword(e.target.value)}
+                      className="pl-10"
+                      required
+                      minLength={6}
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  disabled={isLoading || !invitePassword || invitePassword !== inviteConfirmPassword}
+                >
+                  {isLoading ? "Setting Password..." : "Set Password & Continue"}
+                </Button>
+              </form>
+              
+              <div className="mt-4 text-center">
+                <p className="text-sm text-gray-600">
+                  Already have an account?{' '}
+                  <button
+                    onClick={() => setIsInvitation(false)}
+                    className="text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Sign in instead
+                  </button>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Regular login/signup flow
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">

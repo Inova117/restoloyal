@@ -314,7 +314,7 @@ export default function ZerionPlatformDashboard({
     setLoading(true)
     try {
       // Call our Edge Function to create client with user and tier 2 access
-      const { data, error } = await supabase.functions.invoke('create-client-with-user', {
+      const { data, error } = await supabase.functions.invoke('create-client-with-user-v2', {
         body: {
           name: newClient.name,
           contactEmail: newClient.contactEmail,
@@ -548,7 +548,7 @@ export default function ZerionPlatformDashboard({
       setLoading(true)
       
       // ✅ FIRST: Delete from Supabase using Edge Function  
-      const { data, error } = await supabase.functions.invoke('create-client-with-user', {
+      const { data, error } = await supabase.functions.invoke('create-client-with-user-v2', {
         body: {
           action: 'delete',
           clientId: clientId

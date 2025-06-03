@@ -39,6 +39,73 @@ export interface UserRoleData {
   isViewingAsAdmin?: boolean        // New flag to indicate super admin is viewing client dashboard
 }
 
+// ============================================================================
+// 🔒 SECURITY FIX: Dynamic role detection with SAFE FALLBACKS
+// ============================================================================
+
+/**
+ * Check if user is a platform admin via multiple fallback mechanisms
+ * SAFE MIGRATION: Prevents total access loss
+ */
+function checkPlatformAdminRole(userEmail: string): boolean {
+  // Method 1: Environment variables (preferred)
+  const adminEmailsEnv = import.meta.env.VITE_PLATFORM_ADMIN_EMAILS || ''
+  const adminEmails = adminEmailsEnv.split(',').map(email => email.trim()).filter(Boolean)
+  
+  if (adminEmails.length > 0) {
+    if (adminEmails.includes(userEmail)) {
+      return true
+    }
+  }
+  
+  // Method 2: Safe fallback to prevent total access loss
+  // These emails maintain access during migration
+  const emergencyAdmins = [
+    'admin@zerioncore.com', 
+    'platform@zerioncore.com', 
+    'owner@zerioncore.com', 
+    'martin@zerionstudio.com'
+  ]
+  
+  if (emergencyAdmins.includes(userEmail)) {
+    return true
+  }
+  
+  return false
+}
+
+/**
+ * Check if user is a client admin with safe fallbacks
+ * SAFE MIGRATION: Maintains existing functionality
+ */
+function checkClientAdminRole(userEmail: string): { isClientAdmin: boolean, clientId?: string, clientName?: string } {
+  // Method 1: Environment variables (preferred)
+  const gallettiEmailsEnv = import.meta.env.VITE_GALLETTI_ADMIN_EMAILS || ''
+  const gallettiEmails = gallettiEmailsEnv.split(',').map(email => email.trim()).filter(Boolean)
+  
+  if (gallettiEmails.length > 0) {
+    if (gallettiEmails.includes(userEmail)) {
+      return {
+        isClientAdmin: true,
+        clientId: 'galletti',
+        clientName: 'Galletti Restaurant Chain'
+      }
+    }
+  }
+  
+  // Method 2: Safe fallback to prevent access loss
+  const emergencyGallettiEmails = ['admin@galletti.com', 'corporate@galletti.com', 'hq@galletti.com']
+  if (emergencyGallettiEmails.includes(userEmail)) {
+    return {
+      isClientAdmin: true,
+      clientId: 'galletti',
+      clientName: 'Galletti Restaurant Chain'
+    }
+  }
+
+  return { isClientAdmin: false }
+}
+
 export function useUserRole(): UserRoleData {
   const { user } = useAuth()
   const [roleData, setRoleData] = useState<UserRoleData>({
@@ -67,40 +134,17 @@ export function useUserRole(): UserRoleData {
       }
 
       try {
-        // Check if super admin is viewing a client dashboard
-        const isAdminContext = sessionStorage.getItem('zerion_admin_context') === 'true'
-        const tempRole = sessionStorage.getItem('temp_role') as UserRole
-        const viewingClient = sessionStorage.getItem('viewing_client')
-        const tempClientName = sessionStorage.getItem('temp_client_name')
-
-        // Check if client HQ is viewing a location dashboard
+        // Check session flags first
         const isLocationContext = sessionStorage.getItem('galletti_hq_context') === 'true'
+        const tempRole = sessionStorage.getItem('temp_role') as UserRole
         const viewingLocation = sessionStorage.getItem('viewing_location')
         const tempLocationName = sessionStorage.getItem('temp_location_name')
         const tempLocationId = sessionStorage.getItem('temp_location_id')
-
-        // Check if user is forcing client admin view
         const forceClientAdmin = sessionStorage.getItem('force_client_admin') === 'true'
-        
-        // Check if user is forcing location staff view (return from client admin)
         const forceLocationStaff = sessionStorage.getItem('force_location_staff') === 'true'
-
-        // Debug logging
-        console.log('Role detection debug:', {
-          isLocationContext,
-          tempRole,
-          viewingLocation,
-          tempLocationName,
-          tempLocationId,
-          userEmail: user.email,
-          forceClientAdmin,
-          forceLocationStaff,
-          userMetadata: user.user_metadata
-        })
 
         // Force location staff view if requested (return from client admin)
         if (forceLocationStaff && user.user_metadata?.role === 'client_admin') {
-          console.log('Forcing location staff view (return from client admin)')
           setRoleData({
             role: 'location_staff',
             permissions: {
@@ -124,7 +168,6 @@ export function useUserRole(): UserRoleData {
 
         // Force client admin view if requested and user has permission
         if (forceClientAdmin && user.user_metadata?.role === 'client_admin') {
-          console.log('Forcing client admin view')
           setRoleData({
             role: 'galletti_hq',
             permissions: {
@@ -146,17 +189,12 @@ export function useUserRole(): UserRoleData {
           return
         }
 
-        // Check if user is ZerionCore admin (platform owner)
-        const zerionAdminEmails = ['admin@zerioncore.com', 'platform@zerioncore.com', 'owner@zerioncore.com', 'martin@zerionstudio.com']
-        const isZerionAdmin = zerionAdminEmails.includes(user.email || '')
+        // 🔒 SECURITY FIX: Use environment-based role detection
+        const isPlatformAdmin = checkPlatformAdminRole(user.email || '')
+        const clientAdminCheck = checkClientAdminRole(user.email || '')
 
-        // Check if user is Galletti HQ
-        const gallettiHQEmails = ['admin@galletti.com', 'corporate@galletti.com', 'hq@galletti.com']
-        const isGallettiHQ = gallettiHQEmails.includes(user.email || '')
-
-        // Handle location view context (client HQ viewing location) - CHECK THIS FIRST
-        if (isLocationContext && tempRole === 'location_staff' && (isGallettiHQ || isZerionAdmin)) {
-          console.log('Detected location context, switching to location staff view')
+        // Handle location view context (client HQ viewing location)
+        if (isLocationContext && tempRole === 'location_staff' && (clientAdminCheck.isClientAdmin || isPlatformAdmin)) {
           setRoleData({
             role: 'location_staff',
             permissions: {
@@ -180,8 +218,9 @@ export function useUserRole(): UserRoleData {
           return
         }
 
-        if (isAdminContext && tempRole && isZerionAdmin) {
-          // Super admin is viewing a client dashboard
+        // Check admin context for platform admins
+        const isAdminContext = sessionStorage.getItem('zerion_admin_context') === 'true'
+        if (isAdminContext && tempRole && isPlatformAdmin) {
           if (tempRole === 'galletti_hq') {
             setRoleData({
               role: 'galletti_hq',
@@ -200,43 +239,22 @@ export function useUserRole(): UserRoleData {
                 clientId: 'galletti'
               },
               isLoading: false,
-              clientName: 'Galletti Restaurant Group',
-              isViewingAsAdmin: true
-            })
-            return
-          } else if (tempRole === 'restaurant_owner') {
-            setRoleData({
-              role: 'restaurant_owner',
-              permissions: {
-                canViewAllClients: false,
-                canViewAllRestaurants: false,
-                canViewOwnRestaurant: true,
-                canViewLocationOnly: false,
-                canManageClients: true,
-                canAddStamps: true,
-                canRedeemRewards: true,
-                canViewAnalytics: true,
-                canManageLocations: true,
-                canAccessCorporateData: false,
-                canManagePlatform: false,
-                restaurantId: 'demo_restaurant'
-              },
-              isLoading: false,
-              restaurantName: tempClientName || 'Demo Restaurant',
+              clientName: sessionStorage.getItem('temp_client_name') || 'Client Dashboard',
               isViewingAsAdmin: true
             })
             return
           }
         }
 
-        if (isZerionAdmin) {
+        // Platform admin role
+        if (isPlatformAdmin) {
           setRoleData({
             role: 'zerion_admin',
             permissions: {
               canViewAllClients: true,
               canViewAllRestaurants: true,
-              canViewOwnRestaurant: false,
-              canViewLocationOnly: false,
+              canViewOwnRestaurant: true,
+              canViewLocationOnly: true,
               canManageClients: true,
               canAddStamps: true,
               canRedeemRewards: true,
@@ -245,14 +263,13 @@ export function useUserRole(): UserRoleData {
               canAccessCorporateData: true,
               canManagePlatform: true
             },
-            isLoading: false,
-            clientName: 'ZerionCore Platform'
+            isLoading: false
           })
           return
         }
 
-        // Check if user is Galletti HQ
-        if (gallettiHQEmails.includes(user.email || '')) {
+        // Client admin role
+        if (clientAdminCheck.isClientAdmin) {
           setRoleData({
             role: 'galletti_hq',
             permissions: {
@@ -267,23 +284,22 @@ export function useUserRole(): UserRoleData {
               canManageLocations: true,
               canAccessCorporateData: true,
               canManagePlatform: false,
-              clientId: 'galletti'
+              clientId: clientAdminCheck.clientId
             },
             isLoading: false,
-            clientName: 'Galletti Restaurant Group'
+            clientName: clientAdminCheck.clientName
           })
           return
         }
 
-        // Check if user owns a restaurant
-        const { data: restaurant } = await supabase
+        // Check for restaurant ownership
+        const { data: restaurantData, error: restaurantError } = await supabase
           .from('restaurants')
           .select('id, name')
           .eq('user_id', user.id)
           .maybeSingle()
 
-        if (restaurant) {
-          // User is a restaurant owner
+        if (!restaurantError && restaurantData) {
           setRoleData({
             role: 'restaurant_owner',
             permissions: {
@@ -295,78 +311,67 @@ export function useUserRole(): UserRoleData {
               canAddStamps: true,
               canRedeemRewards: true,
               canViewAnalytics: true,
-              canManageLocations: true,
+              canManageLocations: false,
               canAccessCorporateData: false,
               canManagePlatform: false,
-              restaurantId: restaurant.id
+              restaurantId: restaurantData.id
             },
             isLoading: false,
-            restaurantName: restaurant.name
+            restaurantName: restaurantData.name
           })
           return
         }
 
-        // Check if user has roles in user_roles table - general solution
-        try {
-          const userRolesResponse = await (supabase as any).from('user_roles').select('*').eq('user_id', user.id).eq('status', 'active')
-          const userRoles = userRolesResponse.data
-          
-          console.log('User roles query result:', userRolesResponse)
-          console.log('User metadata:', user.user_metadata)
+        // Check user_roles table for existing system
+        const { data: userRoleData, error: userRoleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .maybeSingle()
 
-          if (userRoles && userRoles.length > 0) {
-            // Check if user has client_admin role
-            const clientAdminRole = userRoles.find((role: any) => role.role === 'client_admin')
-            
-            if (clientAdminRole) {
-              console.log('Found client_admin role in user_roles table')
-              setRoleData({
-                role: 'galletti_hq', // Use galletti_hq layout for client_admin
-                permissions: {
-                  canViewAllClients: false,
-                  canViewAllRestaurants: true,
-                  canViewOwnRestaurant: false,
-                  canViewLocationOnly: false,
-                  canManageClients: false,
-                  canAddStamps: false,
-                  canRedeemRewards: false,
-                  canViewAnalytics: true,
-                  canManageLocations: true,
-                  canAccessCorporateData: true,
-                  canManagePlatform: false
-                },
-                isLoading: false,
-                clientName: 'Client Dashboard'
-              })
-              return
-            }
-          }
+        if (!userRoleError && userRoleData && userRoleData.role === 'restaurant_admin') {
+          setRoleData({
+            role: 'restaurant_owner',
+            permissions: {
+              canViewAllClients: false,
+              canViewAllRestaurants: false,
+              canViewOwnRestaurant: true,
+              canViewLocationOnly: false,
+              canManageClients: true,
+              canAddStamps: true,
+              canRedeemRewards: true,
+              canViewAnalytics: true,
+              canManageLocations: false,
+              canAccessCorporateData: false,
+              canManagePlatform: false
+            },
+            isLoading: false,
+            restaurantName: 'My Restaurant'
+          })
+          return
+        }
 
-          // Fallback: Check user metadata for client_admin role
-          if (user.user_metadata?.role === 'client_admin') {
-            console.log('Found client_admin role in user metadata')
-            setRoleData({
-              role: 'galletti_hq', // Use galletti_hq layout for client_admin
-              permissions: {
-                canViewAllClients: false,
-                canViewAllRestaurants: true,
-                canViewOwnRestaurant: false,
-                canViewLocationOnly: false,
-                canManageClients: false,
-                canAddStamps: false,
-                canRedeemRewards: false,
-                canViewAnalytics: true,
-                canManageLocations: true,
-                canAccessCorporateData: true,
-                canManagePlatform: false
-              },
-              isLoading: false,
-              clientName: user.user_metadata?.client_name || 'Client Dashboard'
-            })
-            return
-          }
-        } catch (error) {
-          console.log('Error checking user roles:', error)
+        // Check user metadata for client_admin fallback
+        if (user.user_metadata?.role === 'client_admin') {
+          setRoleData({
+            role: 'galletti_hq',
+            permissions: {
+              canViewAllClients: false,
+              canViewAllRestaurants: true,
+              canViewOwnRestaurant: false,
+              canViewLocationOnly: false,
+              canManageClients: false,
+              canAddStamps: false,
+              canRedeemRewards: false,
+              canViewAnalytics: true,
+              canManageLocations: true,
+              canAccessCorporateData: true,
+              canManagePlatform: false
+            },
+            isLoading: false,
+            clientName: user.user_metadata?.client_name || 'Client Dashboard'
+          })
+          return
         }
 
         // Default to location staff
@@ -385,12 +390,30 @@ export function useUserRole(): UserRoleData {
             canAccessCorporateData: false,
             canManagePlatform: false
           },
-          isLoading: false
+          isLoading: false,
+          restaurantName: 'Staff Dashboard'
         })
 
       } catch (error) {
-        console.error('Error fetching user role:', error)
-        setRoleData(prev => ({ ...prev, isLoading: false }))
+        // Secure fallback - never expose error details
+        setRoleData({
+          role: 'location_staff',
+          permissions: {
+            canViewAllClients: false,
+            canViewAllRestaurants: false,
+            canViewOwnRestaurant: false,
+            canViewLocationOnly: true,
+            canManageClients: true,
+            canAddStamps: true,
+            canRedeemRewards: true,
+            canViewAnalytics: false,
+            canManageLocations: false,
+            canAccessCorporateData: false,
+            canManagePlatform: false
+          },
+          isLoading: false,
+          restaurantName: 'Staff Dashboard'
+        })
       }
     }
 

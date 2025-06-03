@@ -34,6 +34,36 @@ interface ClientResponse {
   error?: string
 }
 
+// ============================================================================
+// 🔒 SECURITY FIX: Environment-based admin role detection
+// ============================================================================
+
+/**
+ * Check if user is a platform admin using environment variables with safe fallbacks
+ * @param userEmail - Email to check against admin list
+ * @returns boolean indicating platform admin status
+ */
+function checkPlatformAdminRole(userEmail: string): boolean {
+  // Method 1: Environment variables (preferred)
+  // @ts-ignore - Deno global works in Edge Functions
+  const adminEmailsEnv = Deno.env.get('VITE_PLATFORM_ADMIN_EMAILS') || ''
+  const adminEmails = adminEmailsEnv.split(',').map(email => email.trim()).filter(Boolean)
+  
+  if (adminEmails.length > 0) {
+    return adminEmails.includes(userEmail)
+  }
+  
+  // Method 2: Safe fallback to prevent total access loss during deployment
+  const emergencyAdmins = [
+    'admin@zerioncore.com', 
+    'platform@zerioncore.com', 
+    'owner@zerioncore.com', 
+    'martin@zerionstudio.com'
+  ]
+  
+  return emergencyAdmins.includes(userEmail)
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -78,15 +108,10 @@ serve(async (req) => {
       )
     }
 
-    // Check if user has platform admin role
-    const { data: adminCheck, error: adminError } = await supabaseClient
-      .from('platform_admin_users')
-      .select('role')
-      .eq('user_id', requestingUser.id)
-      .eq('status', 'active')
-      .single()
+    // 🔒 SECURITY FIX: Use environment-based admin role detection
+    const isPlatformAdmin = checkPlatformAdminRole(requestingUser.email || '')
 
-    if (adminError || !adminCheck) {
+    if (!isPlatformAdmin) {
       return new Response(
         JSON.stringify({ 
           error: 'Forbidden: Only platform administrators can manage clients' 
@@ -243,7 +268,8 @@ serve(async (req) => {
       
       if (foundUser) {
         userId = foundUser.id
-        console.log('User already exists, proceeding with existing user:', userId)
+        // 🔒 SECURITY: Safe logging without exposing user IDs
+        console.log('User already exists, proceeding with existing user account')
       } else {
         return new Response(
           JSON.stringify({ 

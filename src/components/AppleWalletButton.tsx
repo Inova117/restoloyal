@@ -40,8 +40,10 @@ const AppleWalletButton = ({
         return;
       }
 
-      console.log('🍎 Generating wallet pass for client:', clientId);
-      console.log('📱 Session token available:', !!session.access_token);
+      // 🔒 SECURITY: Removed session token logging to prevent exposure
+      if (import.meta.env.DEV) {
+        console.log('🍎 Generating wallet pass for client:', clientId);
+      }
 
       // Call the Supabase Edge Function to generate the pass
       const { data, error } = await supabase.functions.invoke('generate-pkpass', {

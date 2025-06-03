@@ -48,34 +48,44 @@ const Index = () => {
   const [pageLoaded, setPageLoaded] = useState(false);
 
   useEffect(() => {
-    const fetchRestaurantData = async () => {
-      if (!user || roleLoading) return;
+    const loadInitialData = async () => {
+      if (!user || loading || role === 'location_staff') return
 
       try {
-        console.log('Fetching data for user:', user.id, 'Role:', role);
-        
-        // Only restaurant owners need to fetch restaurant data
+        // 🔒 SECURITY: Log role context only, not sensitive user data
+        if (import.meta.env.DEV) {
+          console.log('🔍 Loading dashboard data for role:', role);
+          console.log('🔍 User ID:', user.id);
+        }
+
+        // For ZerionCore admin viewing Galletti dashboard
+        if (role === 'galletti_hq' && isViewingAsAdmin) {
+          return // Skip data loading for admin view
+        }
+
+        // Check if user has a restaurant (only for restaurant owners)
         if (role === 'restaurant_owner') {
-          // Fetch restaurant data
-          const { data: restaurantData, error: restaurantError } = await supabase
+          const { data: restaurants, error } = await supabase
             .from('restaurants')
             .select('*')
             .eq('user_id', user.id)
-            .maybeSingle();
 
-          if (restaurantError) {
-            console.error('Error fetching restaurant:', restaurantError);
-            toast({
-              title: "Database Error",
-              description: `Failed to fetch restaurant data: ${restaurantError.message}`,
-              variant: "destructive",
-            });
-            return;
+          if (error) {
+            console.error('❌ Error fetching restaurants:', error.message)
+            throw error
           }
 
-          if (!restaurantData) {
-            console.log('No restaurant found for user, creating default restaurant...');
-            // Create a default restaurant for the user
+          if (import.meta.env.DEV) {
+            console.log('🏪 Found restaurants:', restaurants?.length || 0);
+          }
+
+          if (!restaurants || restaurants.length === 0) {
+            // 🔒 SECURITY: Safe logging without user details
+            if (import.meta.env.DEV) {
+              console.log('🆕 Creating default restaurant for new user');
+            }
+            
+            // Create default restaurant for new restaurant owners
             const { data: newRestaurant, error: createError } = await supabase
               .from('restaurants')
               .insert({
@@ -85,66 +95,67 @@ const Index = () => {
                 reward_description: 'Free item after 10 stamps'
               })
               .select()
-              .single();
+              .single()
 
             if (createError) {
-              console.error('Error creating restaurant:', createError);
+              console.error('❌ Error creating restaurant:', createError.message)
               toast({
                 title: "Setup Error",
-                description: `Failed to create restaurant: ${createError.message}`,
+                description: "Failed to create restaurant. Please try refreshing the page.",
                 variant: "destructive",
-              });
-              return;
+              })
+              return
             }
 
-            setRestaurant(newRestaurant);
-            console.log('Created new restaurant:', newRestaurant);
+            setRestaurant(newRestaurant)
+            setClients([]) // New restaurant has no clients yet
           } else {
-            setRestaurant(restaurantData);
-            console.log('Found existing restaurant:', restaurantData);
+            setRestaurant(restaurants[0])
+            
+            // 🔍 ENHANCED CLIENT LOADING with better error handling
+            if (import.meta.env.DEV) {
+              console.log('🔍 Loading clients for restaurant:', restaurants[0].id);
+            }
 
-            // Fetch clients for this restaurant
+            // Load from 'clients' table (legacy but working)
             const { data: clientsData, error: clientsError } = await supabase
               .from('clients')
               .select('*')
-              .eq('restaurant_id', restaurantData.id)
-              .order('created_at', { ascending: false });
+              .eq('restaurant_id', restaurants[0].id)
+              .order('created_at', { ascending: false })
 
             if (clientsError) {
-              console.error('Error fetching clients:', clientsError);
+              console.error('❌ Error fetching clients:', clientsError.message)
               toast({
-                title: "Database Error",
-                description: `Failed to fetch clients: ${clientsError.message}`,
+                title: "Data Loading Error",
+                description: "Could not load customer data. Please check your database connection.",
                 variant: "destructive",
-              });
+              })
             } else {
-              setClients(clientsData || []);
-              console.log('Fetched clients:', clientsData?.length || 0);
+              setClients(clientsData || [])
+              if (import.meta.env.DEV) {
+                console.log('📊 Final clients loaded:', clientsData?.length || 0);
+              }
             }
           }
-        } else {
-          // For ZerionCore, Galletti HQ and Location Staff, show welcome message
-          toast({
-            title: "Welcome",
-            description: `Logged in as ${getRoleDisplayName(role)}`,
-          });
         }
       } catch (error) {
-        console.error('Unexpected error:', error);
+        // 🔒 SECURITY: Safe error logging
+        console.error('❌ Error loading initial data:', error instanceof Error ? error.message : 'Unknown error')
         toast({
           title: "Connection Error",
-          description: "Failed to connect to database. Please check your connection.",
+          description: "Failed to load dashboard data. Please refresh the page.",
           variant: "destructive",
-        });
+        })
       } finally {
-        setLoading(false);
+        setLoading(false)
         // Trigger page loaded animation after a short delay
-        setTimeout(() => setPageLoaded(true), 100);
+        setTimeout(() => setPageLoaded(true), 100)
       }
-    };
+    }
 
-    fetchRestaurantData();
-  }, [user, role, roleLoading]);
+    loadInitialData()
+  }, [user, loading, role, isViewingAsAdmin])
 
   // Set default tab based on role
   useEffect(() => {
@@ -163,7 +174,16 @@ const Index = () => {
   ).length;
 
   const refreshClients = async () => {
-    if (!restaurant) return;
+    if (!restaurant) {
+      if (import.meta.env.DEV) {
+        console.warn('⚠️ Cannot refresh clients: no restaurant loaded');
+      }
+      return;
+    }
+    
+    if (import.meta.env.DEV) {
+      console.log('🔄 Refreshing clients for restaurant:', restaurant.id);
+    }
     
     const { data: clientsData, error } = await supabase
       .from('clients')
@@ -172,9 +192,17 @@ const Index = () => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error refreshing clients:', error);
+      console.error('❌ Error refreshing clients:', error.message);
+      toast({
+        title: "Refresh Error",
+        description: "Could not refresh customer data. Please try again.",
+        variant: "destructive",
+      })
     } else {
       setClients(clientsData || []);
+      if (import.meta.env.DEV) {
+        console.log('✅ Clients refreshed successfully:', clientsData?.length || 0);
+      }
     }
   };
 

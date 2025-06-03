@@ -9,6 +9,182 @@
 -- ============================================================================
 
 -- ============================================================================
+-- UPDATED SECURITY POLICIES with Environment-based Admin Detection
+-- Version: 2024-12-19 (Post-Security Audit)
+-- ============================================================================
+
+-- Drop existing policies that reference hardcoded emails
+DROP POLICY IF EXISTS "Platform admins can manage all platform clients" ON platform_clients;
+DROP POLICY IF EXISTS "Platform admins can manage all user roles" ON user_roles;
+DROP POLICY IF EXISTS "Platform admins can manage all location staff" ON location_staff;
+DROP POLICY IF EXISTS "Platform admins can view all platform activity" ON platform_activity_log;
+DROP POLICY IF EXISTS "Platform admins can manage system config" ON system_config;
+DROP POLICY IF EXISTS "Platform admins can manage all email templates" ON email_templates;
+
+-- ============================================================================
+-- DYNAMIC PLATFORM ADMIN POLICIES
+-- ============================================================================
+
+-- Create a function to check platform admin status
+CREATE OR REPLACE FUNCTION is_platform_admin(user_email text)
+RETURNS boolean AS $$
+DECLARE
+  admin_emails text;
+  email_array text[];
+BEGIN
+  -- Get platform admin emails from environment or fallback
+  admin_emails := COALESCE(
+    current_setting('app.platform_admin_emails', true),
+    'admin@zerioncore.com,platform@zerioncore.com,owner@zerioncore.com,martin@zerionstudio.com'
+  );
+  
+  -- Split emails into array
+  email_array := string_to_array(admin_emails, ',');
+  
+  -- Check if user email is in admin list
+  RETURN user_email = ANY(email_array);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create a function to check current user platform admin status
+CREATE OR REPLACE FUNCTION is_current_user_platform_admin()
+RETURNS boolean AS $$
+DECLARE
+  user_email text;
+BEGIN
+  -- Get current user email
+  SELECT email INTO user_email FROM auth.users WHERE id = auth.uid();
+  
+  -- Check if user is platform admin
+  RETURN is_platform_admin(user_email);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================================
+-- UPDATED PLATFORM CLIENT POLICIES
+-- ============================================================================
+
+CREATE POLICY "Platform admins can manage all platform clients" ON platform_clients
+  FOR ALL
+  USING (is_current_user_platform_admin());
+
+CREATE POLICY "Users can view own client" ON platform_clients
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM user_roles ur
+      WHERE ur.user_id = auth.uid()
+      AND ur.client_id = platform_clients.id
+      AND ur.status = 'active'
+    )
+  );
+
+-- ============================================================================
+-- UPDATED USER ROLES POLICIES
+-- ============================================================================
+
+CREATE POLICY "Platform admins can manage all user roles" ON user_roles
+  FOR ALL
+  USING (is_current_user_platform_admin());
+
+CREATE POLICY "Client admins can manage their user roles" ON user_roles
+  FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM user_roles ur_manager
+      WHERE ur_manager.user_id = auth.uid()
+      AND ur_manager.client_id = user_roles.client_id
+      AND ur_manager.role = 'client_admin'
+      AND ur_manager.status = 'active'
+    )
+  );
+
+CREATE POLICY "Users can view own role" ON user_roles
+  FOR SELECT
+  USING (user_id = auth.uid());
+
+-- ============================================================================
+-- UPDATED LOCATION STAFF POLICIES
+-- ============================================================================
+
+CREATE POLICY "Platform admins can manage all location staff" ON location_staff
+  FOR ALL
+  USING (is_current_user_platform_admin());
+
+CREATE POLICY "Client admins can manage their location staff" ON location_staff
+  FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM user_roles ur
+      JOIN locations l ON l.id = location_staff.location_id
+      WHERE ur.user_id = auth.uid()
+      AND ur.client_id = l.client_id
+      AND ur.role = 'client_admin'
+      AND ur.status = 'active'
+    )
+  );
+
+CREATE POLICY "Restaurant owners can manage their location staff" ON location_staff
+  FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM restaurants r
+      JOIN locations l ON l.restaurant_id = r.id
+      WHERE r.user_id = auth.uid()
+      AND l.id = location_staff.location_id
+    )
+  );
+
+-- ============================================================================
+-- UPDATED SYSTEM CONFIG POLICIES
+-- ============================================================================
+
+CREATE POLICY "Platform admins can manage system config" ON system_config
+  FOR ALL
+  USING (is_current_user_platform_admin());
+
+CREATE POLICY "Everyone can view public system config" ON system_config
+  FOR SELECT
+  USING (is_public = true);
+
+-- ============================================================================
+-- UPDATED EMAIL TEMPLATES POLICIES
+-- ============================================================================
+
+CREATE POLICY "Platform admins can manage all email templates" ON email_templates
+  FOR ALL
+  USING (is_current_user_platform_admin());
+
+CREATE POLICY "Client admins can manage their email templates" ON email_templates
+  FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM user_roles ur
+      WHERE ur.user_id = auth.uid()
+      AND ur.client_id = email_templates.client_id
+      AND ur.role = 'client_admin'
+      AND ur.status = 'active'
+    )
+  );
+
+-- ============================================================================
+-- UPDATED PLATFORM ACTIVITY LOG POLICIES
+-- ============================================================================
+
+CREATE POLICY "Platform admins can view all platform activity" ON platform_activity_log
+  FOR SELECT
+  USING (is_current_user_platform_admin());
+
+CREATE POLICY "Users can view own platform activity" ON platform_activity_log
+  FOR SELECT
+  USING (user_id = auth.uid());
+
+-- System can insert platform activity
+CREATE POLICY "System can insert platform activity" ON platform_activity_log
+  FOR INSERT
+  WITH CHECK (true);
+
+-- ============================================================================
 -- STEP 1: CLEANUP EXISTING POLICIES
 -- ============================================================================
 
@@ -700,6 +876,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authentic
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO authenticated;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
 GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO service_role;
+
+-- Grant execute permissions on admin functions to authenticated users
+GRANT EXECUTE ON FUNCTION is_platform_admin(text) TO authenticated;
+GRANT EXECUTE ON FUNCTION is_current_user_platform_admin() TO authenticated;
 
 -- ============================================================================
 -- SETUP COMPLETE

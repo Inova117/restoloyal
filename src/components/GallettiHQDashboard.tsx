@@ -336,35 +336,22 @@ export default function GallettiHQDashboard() {
     }
   }
 
-  const handleViewLocationDashboard = (location: RestaurantLocation) => {
-    // Navigate to location-specific POS dashboard using role switching
-    console.log('Navigating to location dashboard:', location.name, location.id)
+  const handleViewLocation = (location: RestaurantLocation) => {
+    // Set session storage flags for location context
+    sessionStorage.setItem('galletti_hq_context', 'true')
+    sessionStorage.setItem('temp_role', 'location_staff')
+    sessionStorage.setItem('viewing_location', location.id)
+    sessionStorage.setItem('temp_location_name', location.name)
+    sessionStorage.setItem('temp_location_id', location.id)
+    sessionStorage.setItem('temp_restaurant_id', location.restaurant_id || 'galletti')
     
-    toast({
-      title: "Opening Location Dashboard",
-      description: `Switching to ${location.name} POS interface...`
-    })
+    // 🔒 SECURITY: Removed session storage logging to prevent data exposure
+    if (import.meta.env.DEV) {
+      console.log('Switching to location view for:', location.name);
+    }
     
-    // Switch to location view with the specific location data
-    switchToLocationView({
-      locationId: location.id,
-      locationName: location.name,
-      restaurantId: location.restaurant_id,
-      role: 'location_staff'
-    })
-    
-    // Debug: Check if session storage was set
-    console.log('Session storage after setting:', {
-      galletti_hq_context: sessionStorage.getItem('galletti_hq_context'),
-      temp_role: sessionStorage.getItem('temp_role'),
-      viewing_location: sessionStorage.getItem('viewing_location'),
-      temp_location_name: sessionStorage.getItem('temp_location_name')
-    })
-    
-    // Force a page refresh to trigger the role change
-    setTimeout(() => {
-      window.location.reload()
-    }, 500)
+    // Reload page to trigger role change
+    window.location.reload()
   }
 
   const handleAddStaff = async () => {
@@ -804,7 +791,7 @@ export default function GallettiHQDashboard() {
                     <div className="flex items-center justify-between">
                       <div 
                         className="flex items-center gap-3 cursor-pointer flex-1"
-                        onClick={() => handleViewLocationDashboard(location)}
+                        onClick={() => handleViewLocation(location)}
                       >
                         <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                           <MapPin className="w-6 h-6 text-white" />

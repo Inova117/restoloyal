@@ -541,6 +541,7 @@ export default function GallettiHQDashboard() {
                   variant="outline" 
                   onClick={() => {
                     sessionStorage.removeItem('force_client_admin')
+                    sessionStorage.setItem('force_location_staff', 'true')
                     window.location.reload()
                   }}
                   className="flex items-center gap-2"

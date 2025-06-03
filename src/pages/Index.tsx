@@ -303,6 +303,7 @@ const Index = () => {
                     effect="glow" 
                     onClick={() => {
                       // Force switch to client admin view
+                      sessionStorage.removeItem('force_location_staff')
                       sessionStorage.setItem('force_client_admin', 'true')
                       window.location.reload()
                     }} 

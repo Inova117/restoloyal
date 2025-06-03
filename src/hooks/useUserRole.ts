@@ -81,6 +81,9 @@ export function useUserRole(): UserRoleData {
 
         // Check if user is forcing client admin view
         const forceClientAdmin = sessionStorage.getItem('force_client_admin') === 'true'
+        
+        // Check if user is forcing location staff view (return from client admin)
+        const forceLocationStaff = sessionStorage.getItem('force_location_staff') === 'true'
 
         // Debug logging
         console.log('Role detection debug:', {
@@ -91,8 +94,33 @@ export function useUserRole(): UserRoleData {
           tempLocationId,
           userEmail: user.email,
           forceClientAdmin,
+          forceLocationStaff,
           userMetadata: user.user_metadata
         })
+
+        // Force location staff view if requested (return from client admin)
+        if (forceLocationStaff && user.user_metadata?.role === 'client_admin') {
+          console.log('Forcing location staff view (return from client admin)')
+          setRoleData({
+            role: 'location_staff',
+            permissions: {
+              canViewAllClients: false,
+              canViewAllRestaurants: false,
+              canViewOwnRestaurant: false,
+              canViewLocationOnly: true,
+              canManageClients: true,
+              canAddStamps: true,
+              canRedeemRewards: true,
+              canViewAnalytics: false,
+              canManageLocations: false,
+              canAccessCorporateData: false,
+              canManagePlatform: false
+            },
+            isLoading: false,
+            restaurantName: user.user_metadata?.client_name || 'Staff Dashboard'
+          })
+          return
+        }
 
         // Force client admin view if requested and user has permission
         if (forceClientAdmin && user.user_metadata?.role === 'client_admin') {
@@ -395,6 +423,7 @@ export function returnToPlatform(): void {
   sessionStorage.removeItem('temp_location_id')
   sessionStorage.removeItem('temp_restaurant_id')
   sessionStorage.removeItem('force_client_admin')
+  sessionStorage.removeItem('force_location_staff')
   window.location.reload()
 }
 
@@ -406,6 +435,7 @@ export function returnToHQ(): void {
   sessionStorage.removeItem('temp_location_name')
   sessionStorage.removeItem('temp_location_id')
   sessionStorage.removeItem('temp_restaurant_id')
+  sessionStorage.removeItem('force_location_staff')
   window.location.reload()
 }
 

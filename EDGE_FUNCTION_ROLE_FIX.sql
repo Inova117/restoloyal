@@ -19,4 +19,4 @@
       .eq('status', 'active')
       .in('role', ['platform_admin', 'super_admin'])  // ⚡ CHANGE THIS LINE
       .single()
-*/ 
+*/ const { data: adminCheck, error: adminError } = await supabaseClient.from('platform_admin_users').select('role').eq('user_id', requestingUser.id).eq('status', 'active').single();

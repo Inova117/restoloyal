@@ -113,7 +113,7 @@ serve(async (req) => {
         )
       }
 
-      // Step 1: Get client info before deletion
+      // Step 1: Get client info and associated user ID before deletion
       const { data: clientInfo, error: getClientError } = await supabaseAdmin
         .from('platform_clients')
         .select('name, contact_email')
@@ -132,7 +132,19 @@ serve(async (req) => {
         )
       }
 
-      // Step 2: Delete user roles first (to avoid foreign key constraint)
+      // Step 2: Get user ID from user_roles before deleting
+      const { data: userRoles, error: getUserRolesError } = await supabaseAdmin
+        .from('user_roles')
+        .select('user_id')
+        .eq('client_id', clientId)
+        .eq('role', 'client_admin')
+
+      let userIdsToDelete: string[] = []
+      if (!getUserRolesError && userRoles) {
+        userIdsToDelete = userRoles.map(role => role.user_id)
+      }
+
+      // Step 3: Delete user roles first (to avoid foreign key constraint)
       const { error: deleteRolesError } = await supabaseAdmin
         .from('user_roles')
         .delete()
@@ -142,7 +154,7 @@ serve(async (req) => {
         console.warn('Warning: Could not delete user roles:', deleteRolesError.message)
       }
 
-      // Step 3: Delete platform client
+      // Step 4: Delete platform client
       const { error: deleteClientError } = await supabaseAdmin
         .from('platform_clients')
         .delete()
@@ -160,9 +172,19 @@ serve(async (req) => {
         )
       }
 
-      // Step 4: Optionally delete user account (commented out for safety)
-      // This is risky as the user might have other roles or data
-      // const { error: deleteUserError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+      // Step 5: Delete user accounts from auth.users
+      for (const userId of userIdsToDelete) {
+        try {
+          const { error: deleteUserError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+          if (deleteUserError) {
+            console.warn(`Warning: Could not delete user ${userId}:`, deleteUserError.message)
+          } else {
+            console.log(`Successfully deleted user ${userId}`)
+          }
+        } catch (error) {
+          console.warn(`Error deleting user ${userId}:`, error)
+        }
+      }
 
       const response: ClientResponse = {
         success: true,

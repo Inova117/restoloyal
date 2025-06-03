@@ -547,7 +547,23 @@ export default function ZerionPlatformDashboard({
     try {
       setLoading(true)
       
-      // Remove from localStorage
+      // ✅ FIRST: Delete from Supabase using Edge Function  
+      const { data, error } = await supabase.functions.invoke('create-client-with-user', {
+        body: {
+          action: 'delete',
+          clientId: clientId
+        }
+      })
+
+      if (error) {
+        throw new Error(error.message || 'Failed to delete client from server')
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to delete client from database')
+      }
+      
+      // ✅ SECOND: Remove from localStorage
       const existingClientsStr = localStorage.getItem('zerion_platform_clients')
       const existingClients = existingClientsStr ? JSON.parse(existingClientsStr) : []
       const updatedClients = existingClients.filter((c: ClientData) => c.id !== clientId)
@@ -568,14 +584,15 @@ export default function ZerionPlatformDashboard({
       setSelectedClient(null)
       
       toast({
-        title: "Cliente Eliminado",
-        description: `${clientName} ha sido eliminado exitosamente.`,
+        title: "✅ Cliente Eliminado",
+        description: `${clientName} ha sido eliminado completamente de la base de datos.`,
       })
       
-    } catch (error) {
+    } catch (error: any) {
+      console.error('❌ Client deletion error:', error)
       toast({
-        title: "Error",
-        description: "No se pudo eliminar el cliente. Inténtalo de nuevo.",
+        title: "❌ Error al Eliminar",
+        description: error?.message || "No se pudo eliminar el cliente. Inténtalo de nuevo.",
         variant: "destructive"
       })
     } finally {

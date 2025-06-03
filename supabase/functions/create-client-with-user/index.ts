@@ -9,26 +9,29 @@ const corsHeaders = {
 }
 
 interface CreateClientRequest {
-  name: string
-  contactEmail: string
+  action?: 'create' | 'delete'
+  name?: string
+  contactEmail?: string
   contactPhone?: string
-  plan: 'trial' | 'business' | 'enterprise'
+  plan?: 'trial' | 'business' | 'enterprise'
+  clientId?: string // For delete operation
 }
 
-interface CreateClientResponse {
+interface ClientResponse {
   success: boolean
-  client: {
+  client?: {
     id: string
     name: string
     slug: string
     contactEmail: string
   }
-  user: {
+  user?: {
     id: string
     email: string
     role: string
   }
   message: string
+  error?: string
 }
 
 serve(async (req) => {
@@ -86,7 +89,7 @@ serve(async (req) => {
     if (adminError || !adminCheck) {
       return new Response(
         JSON.stringify({ 
-          error: 'Forbidden: Only platform administrators can create new clients' 
+          error: 'Forbidden: Only platform administrators can manage clients' 
         }),
         {
           status: 403,
@@ -96,8 +99,86 @@ serve(async (req) => {
     }
 
     // Parse request body
-    const { name, contactEmail, contactPhone, plan }: CreateClientRequest = await req.json()
+    const { action = 'create', name, contactEmail, contactPhone, plan, clientId }: CreateClientRequest = await req.json()
 
+    // Handle DELETE operation
+    if (action === 'delete') {
+      if (!clientId) {
+        return new Response(
+          JSON.stringify({ error: 'Client ID is required for delete operation' }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        )
+      }
+
+      // Step 1: Get client info before deletion
+      const { data: clientInfo, error: getClientError } = await supabaseAdmin
+        .from('platform_clients')
+        .select('name, contact_email')
+        .eq('id', clientId)
+        .single()
+
+      if (getClientError) {
+        return new Response(
+          JSON.stringify({ 
+            error: `Client not found: ${getClientError.message}` 
+          }),
+          {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        )
+      }
+
+      // Step 2: Delete user roles first (to avoid foreign key constraint)
+      const { error: deleteRolesError } = await supabaseAdmin
+        .from('user_roles')
+        .delete()
+        .eq('client_id', clientId)
+
+      if (deleteRolesError) {
+        console.warn('Warning: Could not delete user roles:', deleteRolesError.message)
+      }
+
+      // Step 3: Delete platform client
+      const { error: deleteClientError } = await supabaseAdmin
+        .from('platform_clients')
+        .delete()
+        .eq('id', clientId)
+
+      if (deleteClientError) {
+        return new Response(
+          JSON.stringify({ 
+            error: `Failed to delete client: ${deleteClientError.message}` 
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        )
+      }
+
+      // Step 4: Optionally delete user account (commented out for safety)
+      // This is risky as the user might have other roles or data
+      // const { error: deleteUserError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+
+      const response: ClientResponse = {
+        success: true,
+        message: `Client ${clientInfo.name} has been successfully deleted from the platform.`
+      }
+
+      return new Response(
+        JSON.stringify(response),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
+
+    // Handle CREATE operation (existing logic)
     if (!name || !contactEmail) {
       return new Response(
         JSON.stringify({ error: 'Name and contact email are required' }),
@@ -231,7 +312,7 @@ serve(async (req) => {
     }
 
     // Return success response
-    const response: CreateClientResponse = {
+    const response: ClientResponse = {
       success: true,
       client: {
         id: platformClient.id,

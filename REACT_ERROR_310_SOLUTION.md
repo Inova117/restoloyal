@@ -97,5 +97,69 @@ const Index = () => {
 - ✅ Only call hooks at the top level of React functions
 - ✅ Loading checks are OK as early returns since they happen consistently
 
-## Status: RESOLVED ✅
-The React Error #310 has been completely resolved. The application now follows proper React hooks patterns and will not throw this error in production builds. 
+## Additional Issue Found: Client Deletion Bug ⚠️ FIXED
+
+### Problem
+After fixing React Error #310, discovered another issue where deleted clients could not be recreated due to database constraint errors:
+
+```
+❌ Client creation error: {
+  code: "23505",
+  details: "Key (slug)=(zerionstudio) already exists.",
+  hint: null,
+  message: 'duplicate key value violates unique constraint "platform_clients_slug_key"'
+}
+```
+
+### Root Cause
+The `handleDeleteClient` function in `ZerionPlatformDashboard` was only removing clients from localStorage but **NOT from the Supabase database**. When users tried to recreate a client with the same name, the slug already existed in the `platform_clients` table.
+
+### Solution ✅ IMPLEMENTED
+Modified `handleDeleteClient` to properly delete from both database and localStorage:
+
+```typescript
+// ✅ FIXED DELETION PATTERN
+const handleDeleteClient = async (clientId: string, clientName: string) => {
+  try {
+    // ✅ FIRST: Delete from Supabase using Edge Function  
+    const { data, error } = await supabase.functions.invoke('create-client-with-user', {
+      body: {
+        action: 'delete',
+        clientId: clientId
+      }
+    })
+
+    if (error || !data.success) {
+      throw new Error(data.error || 'Failed to delete client from database')
+    }
+    
+    // ✅ SECOND: Remove from localStorage
+    // ... localStorage cleanup ...
+    
+    toast({
+      title: "✅ Cliente Eliminado",
+      description: `${clientName} ha sido eliminado completamente de la base de datos.`,
+    })
+  } catch (error) {
+    // Handle errors properly
+  }
+}
+```
+
+### Edge Function Updated
+Updated `supabase/functions/create-client-with-user/index.ts` to handle both CREATE and DELETE operations:
+
+- Added `action` parameter to distinguish between create/delete
+- Proper foreign key constraint handling (delete user_roles first)
+- Safe client deletion from platform_clients table
+
+### Files Modified for Client Deletion Fix ✅
+- `src/components/ZerionPlatformDashboard.tsx` - Fixed handleDeleteClient function
+- `supabase/functions/create-client-with-user/index.ts` - Added delete operation support
+
+## Status: FULLY RESOLVED ✅
+Both issues have been completely resolved:
+1. ✅ React Error #310 - Fixed component hook patterns
+2. ✅ Client deletion bug - Fixed database deletion
+
+The application now follows proper React patterns and has complete CRUD operations for platform clients. 

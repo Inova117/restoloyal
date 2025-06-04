@@ -44,8 +44,8 @@ const Index = () => {
   const [showPlatformSettings, setShowPlatformSettings] = useState(false);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [pageLoaded, setPageLoaded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [pageLoaded, setPageLoaded] = useState(true);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -56,6 +56,16 @@ const Index = () => {
         if (import.meta.env.DEV) {
           console.log('🔍 Loading dashboard data for role:', role);
           console.log('🔍 User ID:', user.id);
+          console.log('🔍 Loading state:', loading);
+          console.log('🔍 Role loading state:', roleLoading);
+        }
+
+        // For ZerionCore admin - no data loading needed, just show platform dashboard
+        if (role === 'zerion_admin') {
+          if (import.meta.env.DEV) {
+            console.log('🔧 ZerionCore admin detected - skipping restaurant data loading');
+          }
+          return // ZerionCore admin uses ZerionPlatformDashboard component
         }
 
         // For ZerionCore admin viewing Galletti dashboard
@@ -151,11 +161,39 @@ const Index = () => {
         setLoading(false)
         // Trigger page loaded animation after a short delay
         setTimeout(() => setPageLoaded(true), 100)
+        
+        if (import.meta.env.DEV) {
+          console.log('🎬 Page loading complete, setting pageLoaded to true');
+        }
       }
     }
 
     loadInitialData()
   }, [user, loading, role, isViewingAsAdmin])
+
+  // Ensure pageLoaded gets set even if data loading doesn't run
+  useEffect(() => {
+    if (!loading && !roleLoading) {
+      const timer = setTimeout(() => {
+        setPageLoaded(true);
+        if (import.meta.env.DEV) {
+          console.log('🎬 Fallback: Setting pageLoaded to true');
+        }
+      }, 200);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [loading, roleLoading]);
+
+  // Debug logging for render
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.log('🎨 Rendering dashboard for role:', role, 'pageLoaded:', pageLoaded);
+      if (role === 'zerion_admin') {
+        console.log('🎨 Rendering ZerionCore Admin Layout');
+      }
+    }
+  }, [role, pageLoaded]);
 
   // Set default tab based on role
   useEffect(() => {
@@ -214,7 +252,7 @@ const Index = () => {
 
   const availableTabs = getAvailableTabs(role);
 
-  if (loading || roleLoading) {
+  if (roleLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-editorial">
@@ -230,8 +268,11 @@ const Index = () => {
 
   // ✅ SINGLE RETURN WITH CONDITIONAL CONTENT - FIXES REACT ERROR #310
   return (
-    <div className={`min-h-screen bg-background ${pageLoaded ? 'page-enter' : 'opacity-0'}`}>
+    <div className="min-h-screen bg-background page-enter">
       <div className="container-editorial section-editorial-sm">
+        
+        {/* Debug logging for render */}
+        {/* Debug logging moved to useEffect */}
         
         {/* ZerionCore Admin Layout */}
         {role === 'zerion_admin' && (

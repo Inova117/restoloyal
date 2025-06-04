@@ -341,8 +341,19 @@ export class SecurityLogger {
 export class CSPManager {
   // Apply Content Security Policy (only in production)
   static applyCSP() {
+    // TEMPORARILY DISABLED - CSP might be blocking page load
+    console.log('🔧 CSP temporarily disabled for debugging');
+    return;
+
     // Skip CSP in development to avoid blocking Vite's hot reload and inline scripts
-    if (import.meta.env.DEV) {
+    // Check multiple ways to detect development mode
+    const isDev = import.meta.env.DEV || 
+                  import.meta.env.MODE === 'development' || 
+                  window.location.hostname === 'localhost' ||
+                  window.location.hostname === '127.0.0.1' ||
+                  window.location.port !== '';
+
+    if (isDev) {
       console.log('🔧 CSP skipped in development mode');
       return;
     }

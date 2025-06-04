@@ -123,6 +123,9 @@ export default function ZerionPlatformDashboard({
   showPlatformSettings = false, 
   setShowPlatformSettings 
 }: ZerionPlatformDashboardProps) {
+  // Debug: Verificar que el componente se está renderizando
+  console.log('🎯 ZerionPlatformDashboard component is rendering');
+  
   const [metrics, setMetrics] = useState<PlatformMetrics | null>(null)
   const [clients, setClients] = useState<ClientData[]>([])
   const [loading, setLoading] = useState(false)
@@ -186,11 +189,11 @@ export default function ZerionPlatformDashboard({
       advancedReporting: true
     },
     globalBranding: {
-      logoUrl: '/zerion-logo.png',
+      logoUrl: '/placeholder.svg',
       primaryColor: '#3b82f6',
       secondaryColor: '#1e40af',
       accentColor: '#06b6d4',
-      faviconUrl: '/favicon.ico',
+      faviconUrl: '/placeholder.svg',
       companyName: 'ZerionCore',
       supportEmail: 'support@zerioncore.com'
     }

@@ -1,3 +1,22 @@
+-- ⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
+-- 🚨🚨🚨 CRITICAL SECURITY WARNING - DEV/TESTING ONLY 🚨🚨🚨
+-- ⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
+--
+-- ❌ DO NOT RUN THIS IN PRODUCTION ❌
+-- ❌ THIS DISABLES SECURITY ON CRITICAL TABLES ❌
+-- ❌ ONLY FOR DEVELOPMENT/TESTING PURPOSES ❌
+--
+-- This script PERMANENTLY disables Row Level Security on:
+-- - platform_admin_users (CRITICAL ADMIN TABLE)
+-- - user_roles (CRITICAL PERMISSIONS TABLE)
+--
+-- After running this, ANYONE can read/write these tables!
+-- This is a TEMPORARY FIX to resolve infinite recursion in RLS policies.
+--
+-- ⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
+-- 🚨🚨🚨 CRITICAL SECURITY WARNING - DEV/TESTING ONLY 🚨🚨🚨
+-- ⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
+
 -- ============================================================================
 -- FIX ALL RLS POLICIES - COMPLETE SOLUTION
 -- ============================================================================
@@ -58,10 +77,33 @@ SELECT COUNT(*) as client_count FROM platform_clients;
 SELECT id, name, contact_email, contact_phone, status, plan FROM platform_clients ORDER BY created_at DESC;
 
 -- ============================================================================
+-- ⚠️⚠️⚠️ SECURITY RESTORATION REQUIRED ⚠️⚠️⚠️
+-- ============================================================================
+-- 
+-- TO RESTORE SECURITY AFTER TESTING, RUN THESE COMMANDS:
+--
+-- -- Re-enable RLS on critical tables
+-- ALTER TABLE platform_admin_users ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
+--
+-- -- Create proper, non-recursive policies
+-- CREATE POLICY "platform_admin_users_basic_access" ON platform_admin_users
+--     FOR ALL USING (auth.uid() = user_id);
+--
+-- CREATE POLICY "user_roles_basic_access" ON user_roles  
+--     FOR ALL USING (auth.uid() = user_id);
+--
+-- -- Restrict platform_clients to authenticated users only
+-- DROP POLICY "platform_clients_allow_all" ON platform_clients;
+-- CREATE POLICY "platform_clients_authenticated_access" ON platform_clients
+--     FOR ALL USING (auth.role() = 'authenticated');
+--
+-- ============================================================================
 -- NOTES
 -- ============================================================================
 -- 1. This temporarily allows full access to platform_clients
 -- 2. platform_admin_users and user_roles have RLS disabled to stop recursion
 -- 3. Once this works, we can add proper security back gradually
 -- 4. This is a "get it working first" approach
+-- 5. ⚠️ REMEMBER TO RESTORE SECURITY BEFORE PRODUCTION ⚠️
 -- ============================================================================ 

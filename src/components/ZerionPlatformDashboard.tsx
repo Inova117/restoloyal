@@ -71,6 +71,52 @@ interface ClientData {
   growthRate: number
 }
 
+interface AdminUser {
+  id: string
+  name: string
+  email: string
+  role: 'Super Admin' | 'Admin' | 'Support'
+  status: 'active' | 'inactive'
+  lastLogin: string
+}
+
+interface PlatformSettings {
+  adminUsers: AdminUser[]
+  systemConfig: {
+    trialDuration: number
+    defaultLimits: {
+      trial: { stores: number; users: number; stamps: number }
+      business: { stores: number; users: number; stamps: number }
+      enterprise: { stores: number; users: number; stamps: number }
+    }
+    maintenanceMode: boolean
+    autoBackup: boolean
+    dataRetention: number
+  }
+  emailTemplates: {
+    clientOnboarding: { subject: string; content: string }
+    usageAlert: { subject: string; content: string }
+    paymentFailed: { subject: string; content: string }
+  }
+  featureToggles: {
+    referrals: boolean
+    pushNotifications: boolean
+    digitalWallet: boolean
+    aiAnalytics: boolean
+    geoPush: boolean
+    advancedReporting: boolean
+  }
+  globalBranding: {
+    logoUrl: string
+    primaryColor: string
+    secondaryColor: string
+    accentColor: string
+    faviconUrl: string
+    companyName: string
+    supportEmail: string
+  }
+}
+
 interface PlatformMetrics {
   totalClients: number
   totalRestaurants: number
@@ -153,7 +199,7 @@ export default function ZerionPlatformDashboard({
   })
 
   // Platform settings state
-  const [platformSettings, setPlatformSettings] = useState({
+  const [platformSettings, setPlatformSettings] = useState<PlatformSettings>({
     adminUsers: [],
     systemConfig: {
       trialDuration: 30,
@@ -386,7 +432,7 @@ export default function ZerionPlatformDashboard({
   const handleAddClient = async () => {
     if (!newClient.name || !newClient.contactEmail) {
       toast({
-        title: "Validation Error",
+        title: "Missing Information",
         description: "Please fill in all required fields",
         variant: "destructive"
       })
@@ -395,12 +441,14 @@ export default function ZerionPlatformDashboard({
 
     setLoading(true)
     try {
-      // Call our Edge Function to create client with user and tier 2 access
-      const { data, error } = await supabase.functions.invoke('create-client-with-user-v2', {
+      // Call platform-management edge function (FIXED: was calling non-existent create-client-with-user-v2)
+      const { data, error } = await supabase.functions.invoke('platform-management', {
         body: {
           name: newClient.name,
-          contactEmail: newClient.contactEmail,
-          contactPhone: newClient.contactPhone,
+          slug: newClient.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'),
+          type: 'restaurant_chain',
+          contact_email: newClient.contactEmail,
+          contact_phone: newClient.contactPhone,
           plan: newClient.plan
         }
       })
@@ -413,21 +461,21 @@ export default function ZerionPlatformDashboard({
         throw new Error(data.error || 'Failed to create client')
       }
 
-      // Update local state with the new client
+      // Update local state with the new client (FIXED: updated response structure)
       const client: ClientData = {
-        id: data.client.id,
-        name: data.client.name,
+        id: data.data.id,
+        name: data.data.name,
         logo: '🏢',
-        plan: newClient.plan,
+        plan: data.data.plan,
         restaurantCount: 0,
         locationCount: 0,
         customerCount: 0,
         monthlyRevenue: 0,
-        status: newClient.plan === 'trial' ? 'trial' : 'active',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        contact_email: data.client.contactEmail,
-        contact_phone: newClient.contactPhone || '',
+        status: data.data.status,
+        created_at: data.data.created_at,
+        updated_at: data.data.updated_at || data.data.created_at,
+        contact_email: data.data.contact_email,
+        contact_phone: data.data.contact_phone || '',
         growthRate: 0
       }
       
@@ -463,7 +511,7 @@ export default function ZerionPlatformDashboard({
 
       toast({
         title: "🎉 Client Created Successfully!",
-        description: data.message
+        description: `Client "${client.name}" has been created successfully`
       })
 
     } catch (error: any) {
@@ -549,7 +597,7 @@ export default function ZerionPlatformDashboard({
   }
 
   const getStatusBadge = (status: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       active: 'bg-green-100 text-green-800',
       trial: 'bg-blue-100 text-blue-800',
       suspended: 'bg-red-100 text-red-800'
@@ -562,7 +610,7 @@ export default function ZerionPlatformDashboard({
   }
 
   const getPlanBadge = (plan: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       trial: 'bg-gray-100 text-gray-800',
       business: 'bg-blue-100 text-blue-800',
       enterprise: 'bg-purple-100 text-purple-800'
@@ -1851,7 +1899,7 @@ export default function ZerionPlatformDashboard({
                           <div className="flex items-center gap-4">
                             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                               <span className="text-white font-medium text-sm">
-                                {user.name.split(' ').map(n => n[0]).join('')}
+                                {user.name.split(' ').map((n: string) => n[0]).join('')}
                               </span>
                             </div>
                             <div>

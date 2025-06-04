@@ -12,6 +12,7 @@ import { logInfo, logError } from '@/lib/logger';
 import Auth from '@/pages/Auth';
 import AuthCallback from '@/pages/AuthCallback';
 import Index from '@/pages/Index';
+import Landing from '@/pages/Landing';
 import { RestaurantManagement } from '@/pages/RestaurantManagement';
 
 const queryClient = new QueryClient({
@@ -62,16 +63,17 @@ function App() {
           <Router>
             <div className="min-h-screen bg-gray-50">
               <Routes>
+                <Route path="/" element={<Landing />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <Index />
+                  </ProtectedRoute>
+                } />
                 <Route path="/restaurants" element={
                   <ProtectedRoute>
                     <RestaurantManagement />
-                  </ProtectedRoute>
-                } />
-                <Route path="/" element={
-                  <ProtectedRoute>
-                    <Index />
                   </ProtectedRoute>
                 } />
                 <Route path="*" element={<Navigate to="/" replace />} />

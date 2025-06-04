@@ -42,7 +42,6 @@ function App() {
           </Routes>
           </div>
           <Toaster />
-          <DebugInfo />
         </Router>
         </AuthProvider>
   </QueryClientProvider>

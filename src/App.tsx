@@ -4,48 +4,85 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import DebugInfo from '@/components/DebugInfo';
+import { PageErrorBoundary } from '@/components/ErrorBoundary';
 import { initializeSecurity } from '@/lib/security';
+import { logInfo, logError } from '@/lib/logger';
 
 // Pages
 import Auth from '@/pages/Auth';
 import AuthCallback from '@/pages/AuthCallback';
 import Index from '@/pages/Index';
+import { RestaurantManagement } from '@/pages/RestaurantManagement';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        // Don't retry on 4xx errors
+        if (error && typeof error === 'object' && 'status' in error) {
+          const status = (error as { status: number }).status;
+          if (status >= 400 && status < 500) {
+            return false;
+          }
+        }
+        return failureCount < 3;
+      },
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes
+    },
+    mutations: {
+      retry: 1,
+    },
+  },
+});
 
 function App() {
   useEffect(() => {
-    // Initialize security measures when app starts (with error handling)
+    // Initialize security measures when app starts
     try {
       initializeSecurity();
+      logInfo('Application initialized successfully', { 
+        environment: import.meta.env.MODE,
+        timestamp: new Date().toISOString()
+      }, 'App');
     } catch (error) {
-      console.error('⚠️ Security initialization failed, continuing without some security features:', error);
+      logError(
+        'Security initialization failed, continuing without some security features',
+        error,
+        'App'
+      );
       // App continues to load even if security init fails
     }
   }, []);
 
   return (
-  <QueryClientProvider client={queryClient}>
+    <PageErrorBoundary name="Application Root">
+      <QueryClientProvider client={queryClient}>
         <AuthProvider>
-        <Router>
-          <div className="min-h-screen bg-gray-50">
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/" element={
-              <ProtectedRoute>
-                <Index />
-              </ProtectedRoute>
-            } />
-              <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-          </div>
-          <Toaster />
-        </Router>
+          <Router>
+            <div className="min-h-screen bg-gray-50">
+              <Routes>
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/restaurants" element={
+                  <ProtectedRoute>
+                    <RestaurantManagement />
+                  </ProtectedRoute>
+                } />
+                <Route path="/" element={
+                  <ProtectedRoute>
+                    <Index />
+                  </ProtectedRoute>
+                } />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </div>
+            <Toaster />
+          </Router>
         </AuthProvider>
-  </QueryClientProvider>
-);
+      </QueryClientProvider>
+    </PageErrorBoundary>
+  );
 }
 
 export default App;

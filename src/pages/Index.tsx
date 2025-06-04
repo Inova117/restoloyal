@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { QrCode, Users, Gift, Plus, Scan, LogOut, Store, MapPin, BarChart3, Share2, Building2, Crown, Shield, Settings, ArrowLeft } from 'lucide-react';
+import { QrCode, Users, Gift, Plus, Scan, LogOut, Store, MapPin, BarChart3, Share2, Building2, Crown, Shield, Settings, ArrowLeft, Building } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,21 +19,31 @@ import MultiLocationDashboard from '@/components/MultiLocationDashboard';
 import GallettiHQDashboard from '@/components/GallettiHQDashboard';
 import ZerionPlatformDashboard from '@/components/ZerionPlatformDashboard';
 import POSInterface from '@/components/POSInterface';
+import { RestaurantManagement } from '@/pages/RestaurantManagement';
 
 interface Restaurant {
   id: string;
   name: string;
   stamps_required: number;
+  address?: string | null;
+  created_at: string;
+  email?: string | null;
+  phone?: string | null;
+  reward_description?: string | null;
+  updated_at: string;
+  user_id: string;
 }
 
 interface Client {
   id: string;
   name: string;
-  email: string;
-  phone: string;
+  email: string | null;
+  phone: string | null;
   stamps: number;
   qr_code: string;
   created_at: string;
+  restaurant_id: string;
+  updated_at: string;
 }
 
 const Index = () => {
@@ -46,6 +57,7 @@ const Index = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(false);
   const [pageLoaded, setPageLoaded] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -117,34 +129,39 @@ const Index = () => {
               return
             }
 
-            setRestaurant(newRestaurant)
+            if (newRestaurant) {
+              setRestaurant(newRestaurant as Restaurant)
+            }
             setClients([]) // New restaurant has no clients yet
           } else {
-            setRestaurant(restaurants[0])
-            
-            // 🔍 ENHANCED CLIENT LOADING with better error handling
-            if (import.meta.env.DEV) {
-              console.log('🔍 Loading clients for restaurant:', restaurants[0].id);
-            }
-
-            // Load from 'clients' table (legacy but working)
-            const { data: clientsData, error: clientsError } = await supabase
-              .from('clients')
-              .select('*')
-              .eq('restaurant_id', restaurants[0].id)
-              .order('created_at', { ascending: false })
-
-            if (clientsError) {
-              console.error('❌ Error fetching clients:', clientsError.message)
-              toast({
-                title: "Data Loading Error",
-                description: "Could not load customer data. Please check your database connection.",
-                variant: "destructive",
-              })
-            } else {
-              setClients(clientsData || [])
+            const firstRestaurant = restaurants[0];
+            if (firstRestaurant) {
+              setRestaurant(firstRestaurant as Restaurant)
+              
+              // 🔍 ENHANCED CLIENT LOADING with better error handling
               if (import.meta.env.DEV) {
-                console.log('📊 Final clients loaded:', clientsData?.length || 0);
+                console.log('🔍 Loading clients for restaurant:', firstRestaurant.id);
+              }
+
+              // Load from 'clients' table (legacy but working)
+              const { data: clientsData, error: clientsError } = await supabase
+                .from('clients')
+                .select('*')
+                .eq('restaurant_id', firstRestaurant.id)
+                .order('created_at', { ascending: false })
+
+              if (clientsError) {
+                console.error('❌ Error fetching clients:', clientsError.message)
+                toast({
+                  title: "Data Loading Error",
+                  description: "Could not load customer data. Please check your database connection.",
+                  variant: "destructive",
+                })
+              } else {
+                setClients((clientsData || []) as Client[])
+                if (import.meta.env.DEV) {
+                  console.log('📊 Final clients loaded:', clientsData?.length || 0);
+                }
               }
             }
           }
@@ -197,9 +214,9 @@ const Index = () => {
 
   // Set default tab based on role
   useEffect(() => {
-    if (!roleLoading) {
+    if (!roleLoading && role) {
       const availableTabs = getAvailableTabs(role);
-      if (availableTabs.length > 0) {
+      if (availableTabs.length > 0 && availableTabs[0]) {
         setActiveTab(availableTabs[0]);
       }
     }
@@ -237,7 +254,7 @@ const Index = () => {
         variant: "destructive",
       })
     } else {
-      setClients(clientsData || []);
+      setClients((clientsData || []) as Client[]);
       if (import.meta.env.DEV) {
         console.log('✅ Clients refreshed successfully:', clientsData?.length || 0);
       }
@@ -248,7 +265,7 @@ const Index = () => {
   const transformedClients = clients.map(client => ({
     ...client,
     maxStamps: restaurant?.stamps_required || 10
-  }));
+  })) as any; // Type assertion to handle the component interface mismatch
 
   const availableTabs = getAvailableTabs(role);
 
@@ -288,6 +305,15 @@ const Index = () => {
                 </div>
               </div>
               <div className="dashboard-header-actions slide-in-right">
+                <Button 
+                  variant="outline" 
+                  effect="lift"
+                  onClick={() => navigate('/restaurants')}
+                  className="space-x-2"
+                >
+                  <Store className="w-4 h-4" />
+                  <span>Restaurant Management</span>
+                </Button>
                 <Button 
                   variant="outline" 
                   effect="lift"
@@ -333,6 +359,15 @@ const Index = () => {
                     <span>Back to Platform</span>
                   </Button>
                 )}
+                <Button 
+                  variant="outline" 
+                  effect="lift"
+                  onClick={() => navigate('/restaurants')}
+                  className="space-x-2"
+                >
+                  <Store className="w-4 h-4" />
+                  <span>Restaurant Management</span>
+                </Button>
                 <Button variant="outline" effect="lift" onClick={signOut} className="space-x-2">
                   <LogOut className="w-4 h-4" />
                   <span>Sign Out</span>

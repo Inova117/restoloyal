@@ -434,6 +434,8 @@ export const useRestaurantManagement = (options: UseRestaurantManagementOptions 
 
       return () => clearInterval(interval);
     }
+    
+    return undefined;
   }, [refreshInterval, loadRestaurants]);
 
   return {

@@ -1341,7 +1341,7 @@ const Landing = () => {
                   <h3 className="text-2xl font-bold mb-2">Starter</h3>
                   <p className="text-slate-400 mb-6">Perfecto para empezar</p>
                   <div className="mb-6">
-                    <span className="text-5xl font-black">€29</span>
+                    <span className="text-5xl font-black">$49</span>
                     <span className="text-slate-400">/mes</span>
                   </div>
                   <Button className="w-full bg-white/10 hover:bg-white/20 text-white border border-white/20">
@@ -1351,7 +1351,7 @@ const Landing = () => {
                 
                 <div className="space-y-4">
                   {[
-                    "Hasta 500 clientes activos",
+                    "Hasta 200 clientes activos",
                     "1 ubicación",
                     "Tarjetas básicas",
                     "Analytics esenciales",
@@ -1393,7 +1393,7 @@ const Landing = () => {
                   <h3 className="text-2xl font-bold mb-2">Growth</h3>
                   <p className="text-slate-300 mb-6">Para negocios en crecimiento</p>
                   <div className="mb-6">
-                    <span className="text-5xl font-black">€99</span>
+                    <span className="text-5xl font-black">$149</span>
                     <span className="text-slate-400">/mes</span>
                   </div>
                   <Button className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-bold">
@@ -1403,7 +1403,7 @@ const Landing = () => {
                 
                 <div className="space-y-4">
                   {[
-                    "Hasta 2,500 clientes activos",
+                    "Hasta 1000 clientes activos",
                     "3 ubicaciones",
                     "Tarjetas personalizadas",
                     "Analytics avanzados",
@@ -1521,9 +1521,9 @@ const Landing = () => {
                       className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer slider"
                     />
                     <div className="flex justify-between text-xs text-slate-400 mt-1">
-                      <span>€10</span>
-                      <span className="font-bold text-emerald-400">€25</span>
-                      <span>€200</span>
+                      <span>$10</span>
+                      <span className="font-bold text-emerald-400">$25</span>
+                      <span>$200</span>
                     </div>
                   </div>
                 </div>
@@ -1535,12 +1535,12 @@ const Landing = () => {
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-300">Revenue adicional/mes:</span>
-                      <span className="text-2xl font-bold text-emerald-400">€7,500</span>
+                      <span className="text-2xl font-bold text-emerald-400">$7,500</span>
                     </div>
                     
                     <div className="flex justify-between items-center">
                       <span className="text-slate-300">Costo Fydely:</span>
-                      <span className="text-lg font-semibold">€99</span>
+                      <span className="text-lg font-semibold">$99</span>
                     </div>
                     
                     <div className="border-t border-slate-600 pt-4">

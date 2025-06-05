@@ -123,7 +123,7 @@ export const PlatformDashboard: React.FC<PlatformDashboardProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-3xl font-bold">
-                  ZerionCore Platform Dashboard
+                  Fydely Dashboard
                 </CardTitle>
                 <CardDescription className="text-blue-100 text-base">
                   Comprehensive platform management and real-time analytics
@@ -349,7 +349,7 @@ export const PlatformDashboard: React.FC<PlatformDashboardProps> = ({
 
         {/* Footer Information */}
         <div className="text-center text-xs text-gray-500 py-4">
-          <p>ZerionCore Platform Dashboard • Real-time data powered by Edge Functions</p>
+          <p>Fydely Platform Dashboard • Real-time data powered by ZerionStudio</p>
           <p className="mt-1">
             Last updated: {new Date().toLocaleString()} • 
             System Status: <span className={cn('font-medium', isHealthy ? 'text-green-600' : 'text-yellow-600')}>

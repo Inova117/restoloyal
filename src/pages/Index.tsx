@@ -15,7 +15,6 @@ import AddClientDialog from '@/components/AddClientDialog';
 import GeoPushSettings from '@/components/GeoPushSettings';
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 import ReferralDashboard from '@/components/ReferralDashboard';
-import MultiLocationDashboard from '@/components/MultiLocationDashboard';
 import GallettiHQDashboard from '@/components/GallettiHQDashboard';
 import ZerionPlatformDashboard from '@/components/ZerionPlatformDashboard';
 import POSInterface from '@/components/POSInterface';
@@ -300,8 +299,8 @@ const Index = () => {
                   <Crown className="w-10 h-10 text-sage-turquoise-600 icon-bounce" />
                 </div>
                 <div className="space-y-2">
-                  <h1 className="text-4xl lg:text-5xl font-editorial font-bold text-balance">ZerionCore Platform</h1>
-                  <p className="text-muted-foreground text-xl leading-relaxed">Enterprise restaurant loyalty management</p>
+                  <h1 className="text-4xl lg:text-5xl font-editorial font-bold text-balance">Fydely HQ</h1>
+                  <p className="text-muted-foreground text-xl leading-relaxed">Enterprise business loyalty management</p>
                 </div>
               </div>
               <div className="dashboard-header-actions slide-in-right">

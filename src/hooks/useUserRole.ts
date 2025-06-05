@@ -50,7 +50,7 @@ export interface UserRoleData {
 function checkPlatformAdminRole(userEmail: string): boolean {
   // Method 1: Environment variables (preferred)
   const adminEmailsEnv = import.meta.env.VITE_PLATFORM_ADMIN_EMAILS || ''
-  const adminEmails = adminEmailsEnv.split(',').map(email => email.trim()).filter(Boolean)
+  const adminEmails = adminEmailsEnv.split(',').map((email: string) => email.trim()).filter(Boolean)
   
   if (adminEmails.length > 0) {
     if (adminEmails.includes(userEmail)) {
@@ -81,7 +81,7 @@ function checkPlatformAdminRole(userEmail: string): boolean {
 function checkClientAdminRole(userEmail: string): { isClientAdmin: boolean, clientId?: string, clientName?: string } {
   // Method 1: Environment variables (preferred)
   const gallettiEmailsEnv = import.meta.env.VITE_GALLETTI_ADMIN_EMAILS || ''
-  const gallettiEmails = gallettiEmailsEnv.split(',').map(email => email.trim()).filter(Boolean)
+  const gallettiEmails = gallettiEmailsEnv.split(',').map((email: string) => email.trim()).filter(Boolean)
   
   if (gallettiEmails.length > 0) {
     if (gallettiEmails.includes(userEmail)) {
@@ -137,7 +137,6 @@ export function useUserRole(): UserRoleData {
         // Check session flags first
         const isLocationContext = sessionStorage.getItem('galletti_hq_context') === 'true'
         const tempRole = sessionStorage.getItem('temp_role') as UserRole
-        const viewingLocation = sessionStorage.getItem('viewing_location')
         const tempLocationName = sessionStorage.getItem('temp_location_name')
         const tempLocationId = sessionStorage.getItem('temp_location_id')
         const forceClientAdmin = sessionStorage.getItem('force_client_admin') === 'true'

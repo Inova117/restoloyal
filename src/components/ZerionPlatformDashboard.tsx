@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -7,7 +7,7 @@ import { Progress } from '@/components/ui/progress'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/integrations/supabase/client'
 import { 
@@ -16,41 +16,25 @@ import {
   Store, 
   TrendingUp, 
   DollarSign,
-  MapPin,
   Crown,
   Settings,
   BarChart3,
-  Shield,
   Plus,
   Eye,
   ArrowLeft,
-  ExternalLink,
   Activity,
   Server,
-  Clock,
   AlertCircle,
   CheckCircle,
   Zap,
-  Globe,
-  Database,
-  Wifi,
   RefreshCw,
   TrendingDown,
-  Calendar,
   Bell,
   Search,
-  Filter,
   Edit,
   Trash2,
   UserPlus,
   Mail,
-  LogOut,
-  Target,
-  Award,
-  UserCheck,
-  Phone,
-  Key,
-  Download,
   Send
 } from 'lucide-react'
 
@@ -526,11 +510,6 @@ export default function ZerionPlatformDashboard({
     }
   }
 
-  const signOut = () => {
-    sessionStorage.clear()
-    window.location.reload()
-  }
-
   const handleSavePlatformSettings = async (section: string) => {
     setLoading(true)
     try {
@@ -745,7 +724,7 @@ export default function ZerionPlatformDashboard({
       
       toast({
         title: "Invitación Enviada",
-        description: `Se ha enviado una nueva invitación a ${clientEmail}`,
+        description: `Se ha enviado una nueva invitación a ${clientName} (${clientEmail})`,
       })
       
     } catch (error) {
@@ -2358,7 +2337,7 @@ export default function ZerionPlatformDashboard({
             <TabsContent value="global-branding" className="space-y-6">
               <div>
                 <h3 className="text-lg font-semibold">Global Branding</h3>
-                <p className="text-sm text-gray-600">Customize ZerionCore platform appearance and branding</p>
+                <p className="text-sm text-gray-600">Customize Fydely platform appearance and branding</p>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -62,17 +62,13 @@ export const PlatformDashboard: React.FC<PlatformDashboardProps> = ({
   const { 
     metrics, 
     loading: metricsLoading, 
-    error: metricsError, 
     refreshMetrics,
     isHealthy,
     revenueFormatted
   } = usePlatformMetrics({ autoLoad: true, refreshInterval: 60000 }); // Auto-refresh every minute
 
   const {
-    clients,
-    loading: clientsLoading,
-    error: clientsError
-  } = useClientManagement({ autoLoad: true });
+    clients  } = useClientManagement({ autoLoad: true });
 
   // Tab configuration
   const tabs = [

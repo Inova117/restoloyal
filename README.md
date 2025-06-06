@@ -24,7 +24,7 @@
 
 ## 🎯 Overview
 
-RestaurantLoyalty is a comprehensive multi-tenant restaurant loyalty management platform designed for enterprise-scale operations. The system supports complex hierarchical access control, enabling platform owners to manage multiple restaurant chains, each with their own corporate headquarters, individual locations, and staff members.
+ Fydely is a comprehensive multi-tenant restaurant loyalty management platform designed for enterprise-scale operations. The system supports complex hierarchical access control, enabling platform owners to manage multiple restaurant chains, each with their own corporate headquarters, individual locations, and staff members.
 
 ### Key Capabilities:
 - **Multi-Tenant Architecture**: Complete data isolation between clients

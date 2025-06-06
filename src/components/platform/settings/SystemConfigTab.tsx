@@ -18,12 +18,7 @@ import {
   Shield, 
   Mail,
   Bell,
-  Globe,
-  Clock,
-  AlertTriangle,
-  CheckCircle,
-  Server
-} from 'lucide-react';
+  Globe} from 'lucide-react';
 import {
   Select,
   SelectContent,

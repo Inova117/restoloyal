@@ -1,24 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { QrCode, Users, Gift, Plus, Scan, LogOut, Store, MapPin, BarChart3, Share2, Building2, Crown, Shield, Settings, ArrowLeft, Building } from 'lucide-react';
+import { QrCode, Users, Gift, Plus, Scan, LogOut, Store, BarChart3, Building2, Crown, Settings, ArrowLeft } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useUserRole, getAvailableTabs, getRoleDisplayName, returnToPlatform, returnToHQ } from '@/hooks/useUserRole';
+import { useUserRole, getAvailableTabs, returnToPlatform, returnToHQ } from '@/hooks/useUserRole';
 import ClientList from '@/components/ClientList';
 import AddStampDialog from '@/components/AddStampDialog';
 import AddClientDialog from '@/components/AddClientDialog';
-import GeoPushSettings from '@/components/GeoPushSettings';
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
-import ReferralDashboard from '@/components/ReferralDashboard';
 import GallettiHQDashboard from '@/components/GallettiHQDashboard';
 import ZerionPlatformDashboard from '@/components/ZerionPlatformDashboard';
 import POSInterface from '@/components/POSInterface';
-import { RestaurantManagement } from '@/pages/RestaurantManagement';
 
 interface Restaurant {
   id: string;
@@ -47,7 +42,7 @@ interface Client {
 
 const Index = () => {
   const { user, signOut } = useAuth();
-  const { role, permissions, isLoading: roleLoading, clientName, restaurantName, isViewingAsAdmin } = useUserRole();
+  const { role, isLoading: roleLoading, restaurantName, isViewingAsAdmin } = useUserRole();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [isAddStampOpen, setIsAddStampOpen] = useState(false);

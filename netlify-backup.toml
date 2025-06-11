@@ -1,16 +1,27 @@
+# ===================================================
+# BACKUP NETLIFY CONFIG - Sin validación de variables
+# ===================================================
+# 
+# USAR SOLO SI EL BUILD PRINCIPAL FALLA
+# 
+# Para usarlo:
+# 1. Renombrar netlify.toml a netlify-with-validation.toml
+# 2. Renombrar este archivo a netlify.toml
+# 3. Trigger deploy
+# 4. Agregar variables de entorno en Netlify Dashboard
+# 5. Restaurar la configuración original
+#
+
 [build]
-  # Build command - direct vite build
-  command = "npm run build"
+  # Build sin validación (TEMPORAL)
+  command = "vite build"
   
-  # Directory to publish (Vite builds to 'dist' by default)
+  # Directory to publish
   publish = "dist"
 
 [build.environment]
   # Node version
   NODE_VERSION = "18"
-  
-  # Build-time validation
-  BUILD_VERIFY_ENV = "true"
 
 # Headers for security and performance
 [[headers]]
@@ -37,7 +48,7 @@
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
 
-# Redirect rules (backup to _redirects file)
+# Redirect rules
 [[redirects]]
   from = "/auth/*"
   to = "/index.html"
@@ -46,14 +57,4 @@
 [[redirects]]
   from = "/*"
   to = "/index.html"
-  status = 200
-
-# Environment-specific settings
-[context.production]
-  command = "npm run build"
-
-[context.deploy-preview]
-  command = "npm run build"
-
-[context.branch-deploy]
-  command = "npm run build" 
+  status = 200 

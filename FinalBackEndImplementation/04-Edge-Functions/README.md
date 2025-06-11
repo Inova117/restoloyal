@@ -20,6 +20,31 @@ This phase has successfully implemented **secure Edge Functions** that serve as 
 - **Security**: JWT validation, staff permissions check, location validation
 - **Features**: QR code generation, POS integration, creation methods
 
+### **create-location/**
+- **Purpose**: Allows client admins to create new locations
+- **Hierarchy**: Tier 2 → Tier 3 (client_admin → location)
+- **Security**: JWT validation, client admin role check, client ownership
+- **Features**: Location validation, address verification, audit logging
+
+### **create-location-staff/**
+- **Purpose**: Allows client admins to create location staff
+- **Hierarchy**: Tier 2 → Tier 3 (client_admin → location_staff)
+- **Security**: JWT validation, client admin role check, location ownership
+- **Features**: Role-based permissions, email uniqueness, audit logging
+
+### **create-superadmin/**
+- **Purpose**: Allows platform to create superadmins (bootstrap only)
+- **Hierarchy**: Tier 0 → Tier 1 (platform → superadmin)
+- **Security**: Platform-level access, email validation, audit logging
+- **Features**: Bootstrap functionality, role assignment, secure creation
+
+### **platform-management/** ⭐ **NEW**
+- **Purpose**: Multi-endpoint platform management for superadmins
+- **Hierarchy**: Tier 1 access only (superadmin platform operations)
+- **Security**: JWT validation, superadmin role check, CORS support
+- **Features**: Metrics, activity logs, client management, system health
+- **Endpoints**: `?endpoint=metrics|activity|clients|health`
+
 ---
 
 ## 🔒 **SECURITY FEATURES**

@@ -1,6 +1,6 @@
 [build]
-  # Build command
-  command = "npm run build"
+  # Build command with environment verification
+  command = "npm run verify-env && npm run build"
   
   # Directory to publish (Vite builds to 'dist' by default)
   publish = "dist"
@@ -8,6 +8,9 @@
 [build.environment]
   # Node version
   NODE_VERSION = "18"
+  
+  # Build-time validation
+  BUILD_VERIFY_ENV = "true"
 
 # Headers for security and performance
 [[headers]]
@@ -47,10 +50,10 @@
 
 # Environment-specific settings
 [context.production]
-  command = "npm run build"
+  command = "npm run verify-env && npm run build"
 
 [context.deploy-preview]
-  command = "npm run build"
+  command = "npm run verify-env && npm run build"
 
 [context.branch-deploy]
-  command = "npm run build" 
+  command = "npm run verify-env && npm run build" 

@@ -2,13 +2,61 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
+// Environment variable validation with detailed logging
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Debug logging for production troubleshooting (only in development)
+if (import.meta.env.DEV) {
+  console.log('🔍 Environment Debug Info:');
+  console.log('- MODE:', import.meta.env.MODE);
+  console.log('- DEV:', import.meta.env.DEV);
+  console.log('- VITE_SUPABASE_URL:', SUPABASE_URL ? `${SUPABASE_URL.substring(0, 30)}...` : 'MISSING');
+  console.log('- VITE_SUPABASE_ANON_KEY:', SUPABASE_PUBLISHABLE_KEY ? `${SUPABASE_PUBLISHABLE_KEY.substring(0, 20)}...` : 'MISSING');
+  console.log('- Available env vars:', Object.keys(import.meta.env).filter(key => key.startsWith('VITE_')));
+}
+
+// Enhanced error message with troubleshooting info
 if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-  throw new Error(
-    'Missing Supabase environment variables. Please check your .env file and ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.'
-  );
+  const missingVars = [];
+  if (!SUPABASE_URL) missingVars.push('VITE_SUPABASE_URL');
+  if (!SUPABASE_PUBLISHABLE_KEY) missingVars.push('VITE_SUPABASE_ANON_KEY');
+  
+  const errorMessage = `Missing Supabase environment variables: ${missingVars.join(', ')}
+
+🔧 TROUBLESHOOTING STEPS:
+
+1. Check Netlify Environment Variables:
+   - Go to Site Settings → Environment variables
+   - Ensure these exact names exist: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+   - Variables must have VITE_ prefix for frontend access
+
+2. Verify Deploy Context:
+   - Variables must be set for both Production and Deploy Preview
+   - Check current deploy context in Netlify dashboard
+
+3. Force New Deploy:
+   - Trigger a new build (don't just redeploy)
+   - Environment variables are embedded at build time
+
+4. Check Variable Format:
+   - VITE_SUPABASE_URL: https://your-project.supabase.co (no trailing slash)
+   - VITE_SUPABASE_ANON_KEY: Should start with 'eyJ'
+
+Current environment: ${import.meta.env.MODE}
+Available VITE_ variables: ${Object.keys(import.meta.env).filter(key => key.startsWith('VITE_')).join(', ') || 'None found'}`;
+
+  throw new Error(errorMessage);
+}
+
+// Validate URL format
+if (!SUPABASE_URL.startsWith('https://') || !SUPABASE_URL.includes('.supabase.co')) {
+  throw new Error(`Invalid VITE_SUPABASE_URL format. Expected: https://your-project.supabase.co, got: ${SUPABASE_URL}`);
+}
+
+// Validate anon key format
+if (!SUPABASE_PUBLISHABLE_KEY.startsWith('eyJ')) {
+  throw new Error(`Invalid VITE_SUPABASE_ANON_KEY format. Key should start with 'eyJ', got: ${SUPABASE_PUBLISHABLE_KEY.substring(0, 10)}...`);
 }
 
 // Import the supabase client like this:

@@ -425,15 +425,21 @@ export default function ZerionPlatformDashboard({
 
     setLoading(true)
     try {
-      // Call platform-management edge function (FIXED: was calling non-existent create-client-with-user-v2)
-      const { data, error } = await supabase.functions.invoke('platform-management', {
+          // Call create-client edge function
+    const { data, error } = await supabase.functions.invoke('create-client', {
         body: {
           name: newClient.name,
           slug: newClient.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'),
-          type: 'restaurant_chain',
-          contact_email: newClient.contactEmail,
-          contact_phone: newClient.contactPhone,
-          plan: newClient.plan
+          email: newClient.contactEmail,
+          phone: newClient.contactPhone,
+          business_type: 'restaurant_chain',
+          country: 'US',
+          settings: {
+            stamps_required_for_reward: 10,
+            allow_cross_location_stamps: true,
+            auto_expire_stamps_days: 365,
+            plan: newClient.plan
+          }
         }
       })
 
@@ -445,21 +451,21 @@ export default function ZerionPlatformDashboard({
         throw new Error(data.error || 'Failed to create client')
       }
 
-      // Update local state with the new client (FIXED: updated response structure)
+      // Update local state with the new client (using Edge Function response)
       const client: ClientData = {
-        id: data.data.id,
-        name: data.data.name,
+        id: data.client_id,
+        name: newClient.name,
         logo: '🏢',
-        plan: data.data.plan,
+        plan: newClient.plan,
         restaurantCount: 0,
         locationCount: 0,
         customerCount: 0,
         monthlyRevenue: 0,
-        status: data.data.status,
-        created_at: data.data.created_at,
-        updated_at: data.data.updated_at || data.data.created_at,
-        contact_email: data.data.contact_email,
-        contact_phone: data.data.contact_phone || '',
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        contact_email: newClient.contactEmail,
+        contact_phone: newClient.contactPhone || '',
         growthRate: 0
       }
       

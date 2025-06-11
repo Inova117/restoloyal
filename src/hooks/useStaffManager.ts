@@ -34,16 +34,13 @@ export interface UpdateStaffData {
   status?: 'active' | 'suspended' | 'pending'
 }
 
-// Get the Supabase URL for Edge Functions - verification moved inside functions
-const getSupabaseURL = (): string => {
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-  if (!SUPABASE_URL) {
-    throw new Error('VITE_SUPABASE_URL environment variable is required');
-  }
-  return SUPABASE_URL;
-};
+// Get the Supabase URL for Edge Functions
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
-const getStaffURL = () => `${getSupabaseURL()}/functions/v1/staff-manager`;
+if (!SUPABASE_URL) {
+  throw new Error('VITE_SUPABASE_URL environment variable is required');
+}
+const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/staff-manager`
 
 // Temporary mock mode for testing (set to false when Edge Function is deployed)
 const MOCK_MODE = true
@@ -147,10 +144,9 @@ export function useStaffManager(clientId?: string) {
         throw new Error('Not authenticated')
       }
 
-              const STAFF_URL = getStaffURL();
-        console.log('Making request to:', `${STAFF_URL}?client_id=${currentClientId}`)
-        
-        const response = await fetch(`${STAFF_URL}?client_id=${currentClientId}`, {
+      console.log('Making request to:', `${EDGE_FUNCTION_URL}?client_id=${currentClientId}`)
+      
+      const response = await fetch(`${EDGE_FUNCTION_URL}?client_id=${currentClientId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,

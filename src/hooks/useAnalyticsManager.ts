@@ -72,17 +72,12 @@ export interface DateRange {
 }
 
 // Get the Supabase URL for Edge Functions
-const getSupabaseURL = (): string => {
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-  if (!SUPABASE_URL) {
-    throw new Error('VITE_SUPABASE_URL environment variable is required');
-  }
-  return SUPABASE_URL;
-};
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
-const getAnalyticsURL = (): string => {
-  return `${getSupabaseURL()}/functions/v1/analytics-report`;
-};
+if (!SUPABASE_URL) {
+  throw new Error('VITE_SUPABASE_URL environment variable is required');
+}
+const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/analytics-report`
 
 // Temporary mock mode for testing (set to false when Edge Function is deployed)
 const MOCK_MODE = true
@@ -290,9 +285,9 @@ export function useAnalyticsManager(clientId?: string) {
       if (filters.end_date) params.append('end_date', filters.end_date)
       if (filters.location_ids) params.append('location_ids', filters.location_ids.join(','))
 
-      console.log('Making request to:', `${getAnalyticsURL()}?${params}`)
+      console.log('Making request to:', `${EDGE_FUNCTION_URL}?${params}`)
       
-      const response = await fetch(`${getAnalyticsURL()}?${params}`, {
+      const response = await fetch(`${EDGE_FUNCTION_URL}?${params}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -366,9 +361,9 @@ export function useAnalyticsManager(clientId?: string) {
       if (filters.end_date) params.append('end_date', filters.end_date)
       if (filters.location_ids) params.append('location_ids', filters.location_ids.join(','))
 
-      console.log('Making request to:', `${getAnalyticsURL()}?${params}`)
+      console.log('Making request to:', `${EDGE_FUNCTION_URL}?${params}`)
       
-      const response = await fetch(`${getAnalyticsURL()}?${params}`, {
+      const response = await fetch(`${EDGE_FUNCTION_URL}?${params}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -435,9 +430,9 @@ export function useAnalyticsManager(clientId?: string) {
       if (filters.end_date) params.append('end_date', filters.end_date)
       if (filters.location_ids) params.append('location_ids', filters.location_ids.join(','))
 
-      console.log('Making request to:', `${getAnalyticsURL()}?${params}`)
+      console.log('Making request to:', `${EDGE_FUNCTION_URL}?${params}`)
       
-      const response = await fetch(`${getAnalyticsURL()}?${params}`, {
+      const response = await fetch(`${EDGE_FUNCTION_URL}?${params}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,

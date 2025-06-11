@@ -381,4 +381,8 @@ RestaurantLoyalty/
 **Last Updated**: December 2024  
 **Version**: 2.1.0  
 **Status**: Production Ready  
-**Maintainer**: ZerionStudio Team 
+**Maintainer**: ZerionStudio Team
+
+<!-- Last deployed: 2024-01-25 - Environment variables configured -->
+
+**Fydely** is an enterprise-grade, multi-tenant restaurant loyalty platform designed for restaurant chains, franchises, and independent operators. Built with modern React 18 + TypeScript and powered by Supabase, it delivers a seamless experience across all stakeholders. 

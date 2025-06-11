@@ -2,44 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// Get environment variables with fallbacks for build time
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key';
+// Get environment variables directly - no fallbacks, no validation
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Runtime validation only (not during build)
-function validateEnvironmentVariables() {
-  const actualUrl = import.meta.env.VITE_SUPABASE_URL;
-  const actualKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  
-  if (!actualUrl || !actualKey) {
-    console.error('🚨 SUPABASE ENV VARS DEBUG:');
-    console.error('- VITE_SUPABASE_URL:', actualUrl || 'MISSING');
-    console.error('- VITE_SUPABASE_ANON_KEY:', actualKey || 'MISSING');
-    console.error('- All env vars:', import.meta.env);
-    console.error('- VITE_ vars:', Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')));
-    
-    throw new Error(`Missing Supabase environment variables. Check console for debug info.`);
-  }
-  
-  console.log('✅ Supabase environment variables found successfully');
-}
-
-// Only validate in browser environment, not during build
-if (typeof window !== 'undefined') {
-  validateEnvironmentVariables();
-}
-
-// Create and export the client
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
-  },
-  global: {
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    }
-  }
-});
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY);

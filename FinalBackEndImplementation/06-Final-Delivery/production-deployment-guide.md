@@ -76,8 +76,8 @@ AND tablename IN (
 -- Validate RLS policies
 SELECT * FROM test_rls_policies();
 
--- Test hierarchy functions
-SELECT bootstrap_superadmin();
+-- Test hierarchy functions (use your actual email and name)
+SELECT * FROM bootstrap_superadmin('admin@yourcompany.com', 'Super Admin');
 ```
 
 ### Step 3: Bootstrap First Superadmin

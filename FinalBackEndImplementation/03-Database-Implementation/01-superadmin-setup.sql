@@ -11,7 +11,7 @@
 
 -- Enable required PostgreSQL extensions
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
-CREATE EXTENSION IF NOT EXISTS uuid-ossp;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================================================
 -- STEP 2: CREATE USER TIER ENUM
@@ -34,27 +34,21 @@ END $$;
 -- STEP 3: CREATE SUPERADMINS TABLE (TIER 1)
 -- ============================================================================
 
--- Superadmins table (Tier 1) - Platform owners
-CREATE TABLE IF NOT EXISTS public.superadmins (
-  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  email TEXT NOT NULL UNIQUE,
-  name TEXT NOT NULL,
-  is_active BOOLEAN NOT NULL DEFAULT true,
+-- Add missing columns to existing superadmins table
+DO $$ 
+BEGIN
+  -- Add is_bootstrap column if it doesn't exist
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                 WHERE table_name = 'superadmins' AND column_name = 'is_bootstrap') THEN
+    ALTER TABLE public.superadmins ADD COLUMN is_bootstrap BOOLEAN NOT NULL DEFAULT false;
+  END IF;
   
-  -- Bootstrap tracking
-  is_bootstrap BOOLEAN NOT NULL DEFAULT false,
-  bootstrap_method TEXT CHECK (bootstrap_method IN ('sql_script', 'superadmin_creation')),
-  
-  -- Metadata
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-  
-  -- Constraints
-  CONSTRAINT superadmins_email_format CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
-  CONSTRAINT superadmins_name_length CHECK (length(name) >= 2),
-  UNIQUE(user_id)
-);
+  -- Add bootstrap_method column if it doesn't exist
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                 WHERE table_name = 'superadmins' AND column_name = 'bootstrap_method') THEN
+    ALTER TABLE public.superadmins ADD COLUMN bootstrap_method TEXT CHECK (bootstrap_method IN ('sql_script', 'superadmin_creation'));
+  END IF;
+END $$;
 
 -- ============================================================================
 -- STEP 4: CREATE AUDIT LOG TABLE
@@ -128,7 +122,7 @@ DECLARE
 BEGIN
   SELECT id INTO superadmin_id
   FROM superadmins 
-  WHERE user_id = auth.uid() 
+  WHERE superadmins.user_id = auth.uid() 
   AND is_active = true;
   
   RETURN superadmin_id;
@@ -141,7 +135,7 @@ RETURNS BOOLEAN AS $$
 BEGIN
   RETURN EXISTS (
     SELECT 1 FROM superadmins 
-    WHERE user_id = auth.uid() 
+    WHERE superadmins.user_id = auth.uid() 
     AND is_active = true
   );
 END;
@@ -227,7 +221,7 @@ BEGIN
   -- Check if user already exists in auth.users
   SELECT id INTO v_user_id 
   FROM auth.users 
-  WHERE email = p_email;
+  WHERE auth.users.email = p_email;
   
   IF v_user_id IS NOT NULL THEN
     v_auth_user_exists := true;
@@ -242,7 +236,7 @@ BEGIN
   END IF;
   
   -- Check if this user is already a superadmin
-  IF EXISTS (SELECT 1 FROM superadmins WHERE user_id = v_user_id) THEN
+  IF EXISTS (SELECT 1 FROM superadmins WHERE superadmins.user_id = v_user_id) THEN
     RAISE EXCEPTION 'User % is already a superadmin', p_email;
   END IF;
   
@@ -351,17 +345,19 @@ ALTER TABLE public.superadmins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.hierarchy_audit_log ENABLE ROW LEVEL SECURITY;
 
 -- Basic RLS policy for superadmins (allow all for now, will refine in Phase 5)
+DROP POLICY IF EXISTS "superadmins_access" ON public.superadmins;
 CREATE POLICY "superadmins_access" ON public.superadmins
   FOR ALL 
   USING (true);
 
 -- Basic RLS policy for audit log (superadmins can see all)
+DROP POLICY IF EXISTS "audit_log_superadmin_access" ON public.hierarchy_audit_log;
 CREATE POLICY "audit_log_superadmin_access" ON public.hierarchy_audit_log
   FOR SELECT 
   USING (
     EXISTS (
       SELECT 1 FROM superadmins 
-      WHERE user_id = auth.uid() 
+      WHERE superadmins.user_id = auth.uid() 
       AND is_active = true
     )
   );

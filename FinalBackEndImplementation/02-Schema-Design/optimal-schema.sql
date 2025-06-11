@@ -12,7 +12,7 @@
 
 -- Enable required PostgreSQL extensions
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
-CREATE EXTENSION IF NOT EXISTS uuid-ossp;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================================================
 -- STEP 2: 4-TIER HIERARCHY ENUM
@@ -138,16 +138,7 @@ CREATE TABLE public.locations (
   
   -- Constraints
   CONSTRAINT locations_email_format CHECK (email IS NULL OR email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
-  UNIQUE(client_id, name),
-  
-  -- Ensure creator belongs to the client
-  CONSTRAINT locations_creator_belongs_to_client CHECK (
-    EXISTS (
-      SELECT 1 FROM public.client_admins ca 
-      WHERE ca.id = created_by_client_admin_id 
-      AND ca.client_id = locations.client_id
-    )
-  )
+  UNIQUE(client_id, name)
 );
 
 -- Location Staff table (Tier 3) - Store managers and POS users
@@ -180,25 +171,7 @@ CREATE TABLE public.location_staff (
   -- Constraints
   CONSTRAINT location_staff_email_format CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
   UNIQUE(user_id),
-  UNIQUE(email),
-  
-  -- Ensure location belongs to client
-  CONSTRAINT staff_location_belongs_to_client CHECK (
-    EXISTS (
-      SELECT 1 FROM public.locations l 
-      WHERE l.id = location_id 
-      AND l.client_id = location_staff.client_id
-    )
-  ),
-  
-  -- Ensure creator belongs to the client  
-  CONSTRAINT staff_creator_belongs_to_client CHECK (
-    EXISTS (
-      SELECT 1 FROM public.client_admins ca 
-      WHERE ca.id = created_by_client_admin_id 
-      AND ca.client_id = location_staff.client_id
-    )
-  )
+  UNIQUE(email)
 );
 
 -- ============================================================================
@@ -242,26 +215,7 @@ CREATE TABLE public.customers (
   -- Constraints
   CONSTRAINT customers_email_format CHECK (email IS NULL OR email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
   CONSTRAINT customers_phone_format CHECK (phone IS NULL OR phone ~ '^\+?[1-9]\d{1,14}$'),
-  UNIQUE(client_id, customer_number),
-  
-  -- Ensure location belongs to client
-  CONSTRAINT customers_location_belongs_to_client CHECK (
-    EXISTS (
-      SELECT 1 FROM public.locations l 
-      WHERE l.id = location_id 
-      AND l.client_id = customers.client_id
-    )
-  ),
-  
-  -- Ensure creator works at the location
-  CONSTRAINT customers_creator_works_at_location CHECK (
-    EXISTS (
-      SELECT 1 FROM public.location_staff ls 
-      WHERE ls.id = created_by_staff_id 
-      AND ls.location_id = customers.location_id
-      AND ls.client_id = customers.client_id
-    )
-  )
+  UNIQUE(client_id, customer_number)
 );
 
 -- ============================================================================
@@ -290,22 +244,7 @@ CREATE TABLE public.stamps (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   
   -- Constraints
-  CONSTRAINT stamps_quantity_positive CHECK (quantity > 0),
-  
-  -- Ensure all entities belong to same client
-  CONSTRAINT stamps_client_consistency CHECK (
-    EXISTS (
-      SELECT 1 FROM public.customers c, public.locations l, public.location_staff ls
-      WHERE c.id = customer_id 
-      AND l.id = location_id 
-      AND ls.id = created_by_staff_id
-      AND c.client_id = stamps.client_id
-      AND l.client_id = stamps.client_id  
-      AND ls.client_id = stamps.client_id
-      AND c.location_id = stamps.location_id
-      AND ls.location_id = stamps.location_id
-    )
-  )
+  CONSTRAINT stamps_quantity_positive CHECK (quantity > 0)
 );
 
 -- Rewards table - Customer reward redemptions
@@ -333,22 +272,7 @@ CREATE TABLE public.rewards (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   
   -- Constraints
-  CONSTRAINT rewards_stamps_positive CHECK (stamps_used > 0),
-  
-  -- Ensure all entities belong to same client
-  CONSTRAINT rewards_client_consistency CHECK (
-    EXISTS (
-      SELECT 1 FROM public.customers c, public.locations l, public.location_staff ls
-      WHERE c.id = customer_id 
-      AND l.id = location_id 
-      AND ls.id = created_by_staff_id
-      AND c.client_id = rewards.client_id
-      AND l.client_id = rewards.client_id
-      AND ls.client_id = rewards.client_id
-      AND c.location_id = rewards.location_id
-      AND ls.location_id = rewards.location_id
-    )
-  )
+  CONSTRAINT rewards_stamps_positive CHECK (stamps_used > 0)
 );
 
 -- ============================================================================

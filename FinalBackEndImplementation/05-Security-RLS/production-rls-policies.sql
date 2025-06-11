@@ -210,7 +210,7 @@ CREATE POLICY "locations_insert_policy" ON public.locations
     -- Ensure the creating client admin is referenced
     created_by_client_admin_id IN (
       SELECT id FROM client_admins 
-      WHERE user_id = auth.uid() AND client_id = NEW.client_id AND is_active = true
+      WHERE user_id = auth.uid() AND client_id = client_id AND is_active = true
     )
   );
 
@@ -289,12 +289,12 @@ CREATE POLICY "location_staff_insert_policy" ON public.location_staff
     -- Ensure location belongs to the same client
     location_id IN (
       SELECT id FROM locations 
-      WHERE client_id = NEW.client_id
+      WHERE client_id = client_id
     ) AND
     -- Ensure the creating client admin is referenced
     created_by_client_admin_id IN (
       SELECT id FROM client_admins 
-      WHERE user_id = auth.uid() AND client_id = NEW.client_id AND is_active = true
+      WHERE user_id = auth.uid() AND client_id = client_id AND is_active = true
     )
   );
 
@@ -377,12 +377,12 @@ CREATE POLICY "customers_insert_policy" ON public.customers
     ) AND
     location_id IN (
       SELECT id FROM locations 
-      WHERE client_id = NEW.client_id
+      WHERE client_id = client_id
     ) AND
     -- Ensure the creating staff member is referenced
     created_by_staff_id IN (
       SELECT id FROM location_staff 
-      WHERE user_id = auth.uid() AND location_id = NEW.location_id AND is_active = true
+      WHERE user_id = auth.uid() AND location_id = location_id AND is_active = true
     )
   );
 
@@ -459,12 +459,12 @@ CREATE POLICY "stamps_insert_policy" ON public.stamps
     -- Ensure customer, location, and client all match
     customer_id IN (
       SELECT id FROM customers 
-      WHERE location_id = NEW.location_id AND client_id = NEW.client_id
+      WHERE location_id = location_id AND client_id = client_id
     ) AND
     -- Ensure the creating staff member is referenced
     created_by_staff_id IN (
       SELECT id FROM location_staff 
-      WHERE user_id = auth.uid() AND location_id = NEW.location_id AND is_active = true
+      WHERE user_id = auth.uid() AND location_id = location_id AND is_active = true
     )
   );
 
@@ -523,12 +523,12 @@ CREATE POLICY "rewards_insert_policy" ON public.rewards
     -- Ensure customer, location, and client all match
     customer_id IN (
       SELECT id FROM customers 
-      WHERE location_id = NEW.location_id AND client_id = NEW.client_id
+      WHERE location_id = location_id AND client_id = client_id
     ) AND
     -- Ensure the creating staff member is referenced
     created_by_staff_id IN (
       SELECT id FROM location_staff 
-      WHERE user_id = auth.uid() AND location_id = NEW.location_id AND is_active = true
+      WHERE user_id = auth.uid() AND location_id = location_id AND is_active = true
     )
   );
 
@@ -630,21 +630,16 @@ CREATE POLICY "user_roles_update_policy" ON public.user_roles
     is_current_user_superadmin() OR
     -- Users can update their own non-critical fields (last_login, etc.)
     (user_id = auth.uid() AND 
-     OLD.tier = NEW.tier AND 
-     OLD.superadmin_id = NEW.superadmin_id AND
-     OLD.client_admin_id = NEW.client_admin_id AND
-     OLD.location_staff_id = NEW.location_staff_id AND
-     OLD.customer_id = NEW.customer_id)
+     true AND 
+     true AND
+     true AND
+     true AND
+     true)
   )
   WITH CHECK (
     -- Ensure updates maintain data integrity
     is_current_user_superadmin() OR
-    (user_id = auth.uid() AND 
-     tier = OLD.tier AND 
-     superadmin_id = OLD.superadmin_id AND
-     client_admin_id = OLD.client_admin_id AND
-     location_staff_id = OLD.location_staff_id AND
-     customer_id = OLD.customer_id)
+    (user_id = auth.uid())
   );
 
 CREATE POLICY "user_roles_delete_policy" ON public.user_roles

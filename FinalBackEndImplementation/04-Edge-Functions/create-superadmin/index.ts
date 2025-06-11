@@ -1,41 +1,34 @@
 // ============================================================================
-// EDGE FUNCTION: CREATE CLIENT (Tier 2)
+// EDGE FUNCTION: CREATE SUPERADMIN (Tier 1)
 // ============================================================================
-// This function allows ONLY superadmins to create new clients (businesses)
-// Enforces hierarchy: superadmin → client
+// This function allows ONLY existing superadmins to create new superadmins
+// Enforces hierarchy: superadmin → superadmin (peer creation)
 // ============================================================================
 
-// TypeScript declarations for Deno Edge Function environment
-declare global {
-  const Deno: {
-    env: {
-      get(key: string): string | undefined;
-    };
+// TypeScript declaration for Deno global
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
   };
-}
+};
 
 // @ts-ignore - Deno runtime imports
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 // @ts-ignore - Deno runtime imports  
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-interface CreateClientRequest {
-  name: string
-  slug: string
+interface CreateSuperadminRequest {
   email: string
-  phone?: string
-  address?: string
-  city?: string
-  state?: string
-  country?: string
-  business_type?: 'restaurant_chain' | 'single_restaurant' | 'franchise'
-  settings?: Record<string, any>
+  name: string
+  password: string
+  is_active?: boolean
 }
 
-interface CreateClientResponse {
+interface CreateSuperadminResponse {
   success: boolean
-  client_id?: string
-  client_slug?: string
+  superadmin_id?: string
+  user_id?: string
+  email?: string
   message: string
   error?: string
 }
@@ -107,7 +100,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Access denied. Only superadmins can create clients.' 
+          error: 'Access denied. Only superadmins can create other superadmins.' 
         }),
         { 
           status: 403, 
@@ -117,14 +110,14 @@ serve(async (req) => {
     }
 
     // Parse request body
-    const requestBody: CreateClientRequest = await req.json()
+    const requestBody: CreateSuperadminRequest = await req.json()
 
     // Validate required fields
-    if (!requestBody.name || !requestBody.slug || !requestBody.email) {
+    if (!requestBody.email || !requestBody.name || !requestBody.password) {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Missing required fields: name, slug, email' 
+          error: 'Missing required fields: email, name, password' 
         }),
         { 
           status: 400, 
@@ -148,13 +141,12 @@ serve(async (req) => {
       )
     }
 
-    // Validate slug format (lowercase, alphanumeric, hyphens only)
-    const slugRegex = /^[a-z0-9\-]+$/
-    if (!slugRegex.test(requestBody.slug)) {
+    // Validate password strength
+    if (requestBody.password.length < 8) {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Invalid slug format. Use lowercase letters, numbers, and hyphens only.' 
+          error: 'Password must be at least 8 characters long' 
         }),
         { 
           status: 400, 
@@ -163,18 +155,14 @@ serve(async (req) => {
       )
     }
 
-    // Check if slug already exists
-    const { data: existingClient, error: slugCheckError } = await supabaseClient
-      .from('clients')
-      .select('id, slug')
-      .eq('slug', requestBody.slug)
-      .single()
-
-    if (existingClient) {
+    // Check if email already exists in auth.users
+    const { data: existingUser, error: userCheckError } = await supabaseClient.auth.admin.listUsers()
+    
+    if (existingUser?.users?.some(u => u.email === requestBody.email)) {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: `Client with slug '${requestBody.slug}' already exists` 
+          error: `User with email '${requestBody.email}' already exists` 
         }),
         { 
           status: 400, 
@@ -183,40 +171,24 @@ serve(async (req) => {
       )
     }
 
-    // Prepare client data
-    const clientData = {
-      name: requestBody.name,
-      slug: requestBody.slug,
+    // Create the auth user first
+    const { data: newAuthUser, error: authCreateError } = await supabaseClient.auth.admin.createUser({
       email: requestBody.email,
-      phone: requestBody.phone || null,
-      address: requestBody.address || null,
-      city: requestBody.city || null,
-      state: requestBody.state || null,
-      country: requestBody.country || 'US',
-      business_type: requestBody.business_type || 'restaurant_chain',
-      settings: requestBody.settings || {
-        stamps_required_for_reward: 10,
-        allow_cross_location_stamps: true,
-        auto_expire_stamps_days: 365,
-        customer_can_view_history: true
-      },
-      created_by_superadmin_id: superadminData.id,
-      status: 'active'
-    }
+      password: requestBody.password,
+      email_confirm: true,
+      user_metadata: {
+        name: requestBody.name,
+        role: 'superadmin',
+        created_by: superadminData.email
+      }
+    })
 
-    // Create the client
-    const { data: newClient, error: createError } = await supabaseClient
-      .from('clients')
-      .insert([clientData])
-      .select('id, name, slug, email, business_type, status, created_at')
-      .single()
-
-    if (createError) {
-      console.error('Client creation error:', createError)
+    if (authCreateError || !newAuthUser.user) {
+      console.error('Auth user creation error:', authCreateError)
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: `Failed to create client: ${createError.message}` 
+          error: `Failed to create auth user: ${authCreateError?.message}` 
         }),
         { 
           status: 500, 
@@ -225,29 +197,76 @@ serve(async (req) => {
       )
     }
 
+    // Create the superadmin record
+    const superadminData_new = {
+      user_id: newAuthUser.user.id,
+      email: requestBody.email,
+      name: requestBody.name,
+      is_active: requestBody.is_active !== false,
+      is_bootstrap: false,
+      bootstrap_method: 'superadmin_creation'
+    }
+
+    const { data: newSuperadmin, error: createError } = await supabaseClient
+      .from('superadmins')
+      .insert([superadminData_new])
+      .select('id, email, name, is_active, created_at')
+      .single()
+
+    if (createError) {
+      console.error('Superadmin creation error:', createError)
+      
+      // Cleanup: Delete the auth user if superadmin creation failed
+      await supabaseClient.auth.admin.deleteUser(newAuthUser.user.id)
+      
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Failed to create superadmin: ${createError.message}` 
+        }),
+        { 
+          status: 500, 
+          headers: { 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Create user_roles entry
+    await supabaseClient
+      .from('user_roles')
+      .insert([{
+        user_id: newAuthUser.user.id,
+        tier: 'superadmin',
+        superadmin_id: newSuperadmin.id,
+        created_by_user_id: user.id,
+        created_by_tier: 'superadmin',
+        is_active: true
+      }])
+
     // Log the successful creation
     await supabaseClient
       .from('hierarchy_audit_log')
       .insert([{
-        violation_type: 'client_creation',
-        attempted_action: 'create_client_via_edge_function',
+        violation_type: 'superadmin_creation',
+        attempted_action: 'create_superadmin_via_edge_function',
         user_id: user.id,
-        target_table: 'clients',
+        target_table: 'superadmins',
         target_data: {
-          client_id: newClient.id,
-          client_name: newClient.name,
-          client_slug: newClient.slug,
+          new_superadmin_id: newSuperadmin.id,
+          new_superadmin_email: newSuperadmin.email,
+          new_superadmin_name: newSuperadmin.name,
           created_by_superadmin: superadminData.email
         },
-        error_message: 'Client created successfully via Edge Function'
+        error_message: 'Superadmin created successfully via Edge Function'
       }])
 
     // Return success response
-    const response: CreateClientResponse = {
+    const response: CreateSuperadminResponse = {
       success: true,
-      client_id: newClient.id,
-      client_slug: newClient.slug,
-      message: `Client '${newClient.name}' created successfully`
+      superadmin_id: newSuperadmin.id,
+      user_id: newAuthUser.user.id,
+      email: newSuperadmin.email,
+      message: `Superadmin '${newSuperadmin.name}' created successfully`
     }
 
     return new Response(
@@ -259,7 +278,7 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Unexpected error in create-client function:', error)
+    console.error('Unexpected error in create-superadmin function:', error)
     
     return new Response(
       JSON.stringify({ 
@@ -278,39 +297,30 @@ serve(async (req) => {
 ============================================================================
 USAGE EXAMPLE:
 
-POST /functions/v1/create-client
-Authorization: Bearer <superadmin-jwt-token>
+POST /functions/v1/create-superadmin
+Authorization: Bearer <existing-superadmin-jwt-token>
 Content-Type: application/json
 
 {
-  "name": "Pizza Palace Chain",
-  "slug": "pizza-palace-chain",
-  "email": "admin@pizzapalace.com",
-  "phone": "+1234567890",
-  "address": "123 Corporate Blvd",
-  "city": "Business City",
-  "state": "CA",
-  "country": "US",
-  "business_type": "restaurant_chain",
-  "settings": {
-    "stamps_required_for_reward": 8,
-    "allow_cross_location_stamps": true,
-    "auto_expire_stamps_days": 180
-  }
+  "email": "newadmin@zerioncore.com",
+  "name": "New Super Admin",
+  "password": "SecurePassword123!",
+  "is_active": true
 }
 
 SUCCESS RESPONSE (201):
 {
   "success": true,
-  "client_id": "550e8400-e29b-41d4-a716-446655440000",
-  "client_slug": "pizza-palace-chain",
-  "message": "Client 'Pizza Palace Chain' created successfully"
+  "superadmin_id": "550e8400-e29b-41d4-a716-446655440000",
+  "user_id": "660e8400-e29b-41d4-a716-446655440000",
+  "email": "newadmin@zerioncore.com",
+  "message": "Superadmin 'New Super Admin' created successfully"
 }
 
 ERROR RESPONSES:
 - 401: Invalid/missing auth token
 - 403: User is not a superadmin
-- 400: Missing required fields or validation errors
+- 400: Missing required fields, invalid email, or weak password
 - 500: Internal server error
 ============================================================================
 */ 

@@ -50,19 +50,19 @@ export default function ClientList({ refreshTrigger }: ClientListProps) {
         .from('clients')
         .select(`
           id,
-          business_name,
+          name,
           business_type,
-          contact_email,
-          contact_phone,
+          email,
+          phone,
           address,
           city,
           state,
           country,
-          is_active,
+          status,
           created_at,
           updated_at
         `)
-        .order('business_name')
+        .order('name')
 
       if (clientsError) throw clientsError
 
@@ -228,7 +228,7 @@ export default function ClientList({ refreshTrigger }: ClientListProps) {
                       <div className="flex items-center gap-3 mb-2">
                         <div className="flex items-center gap-2">
                           <Building className="h-5 w-5 text-primary" />
-                          <h3 className="font-semibold text-lg">{client.business_name}</h3>
+                          <h3 className="font-semibold text-lg">{client.name}</h3>
                         </div>
                         <Badge variant={client.is_active ? "default" : "secondary"}>
                           {client.is_active ? "Active" : "Inactive"}
@@ -260,16 +260,16 @@ export default function ClientList({ refreshTrigger }: ClientListProps) {
                       </div>
 
                       <div className="space-y-1 text-sm text-muted-foreground">
-                        {client.contact_email && (
+                        {client.email && (
                           <div className="flex items-center gap-2">
                             <Mail className="h-4 w-4" />
-                            <span>{client.contact_email}</span>
+                            <span>{client.email}</span>
                           </div>
                         )}
-                        {client.contact_phone && (
+                        {client.phone && (
                           <div className="flex items-center gap-2">
                             <Phone className="h-4 w-4" />
-                            <span>{client.contact_phone}</span>
+                            <span>{client.phone}</span>
                           </div>
                         )}
                         {(client.city || client.state || client.country) && (

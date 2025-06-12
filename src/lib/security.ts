@@ -484,7 +484,7 @@ export const SecurityUtils = {
   // Validate CSRF token
   validateCSRF: (token: string): boolean => {
     // Implementation would depend on your CSRF strategy
-    return token && token.length > 0;
+    return Boolean(token && token.length > 0);
   },
 
   // Check if running in secure context

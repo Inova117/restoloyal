@@ -124,10 +124,10 @@ export const useUserRole = (): UserRoleData => {
         // Check user_roles table first for the most accurate role
         const { data: userRoleData, error: userRoleError } = await (supabase as any)
           .from('user_roles')
-          .select('tier, tier_specific_id, is_active')
+          .select('tier, superadmin_id, client_admin_id, location_staff_id, customer_id, is_active')
           .eq('user_id', user.id)
           .eq('is_active', true)
-          .single()
+          .maybeSingle()
 
         if (userRoleData && !userRoleError) {
           const userTier = userRoleData.tier as UserTier

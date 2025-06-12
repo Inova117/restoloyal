@@ -28,6 +28,14 @@ const AppleWalletButton = ({
     setIsGenerating(true);
     
     try {
+      // 🚧 TEMPORARILY DISABLED: generate-pkpass Edge Function not created yet
+      toast({
+        title: "🚧 Feature Coming Soon",
+        description: "Apple Wallet integration is planned but not yet implemented. This feature requires Apple Developer Program setup.",
+      });
+      
+      /* TODO: Uncomment when generate-pkpass Edge Function is created
+      
       // Get the current session
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -149,27 +157,15 @@ const AppleWalletButton = ({
           variant: "destructive",
         });
       }
+      
+      */ // End of commented code
 
     } catch (error: any) {
-      console.error('❌ Error generating wallet pass:', error);
-      
-      // Provide helpful error messages
-      let errorMessage = "Failed to generate Apple Wallet pass. Please try again.";
-      
-      if (error.message?.includes('not found')) {
-        errorMessage = "Customer not found. Please refresh and try again.";
-      } else if (error.message?.includes('unauthorized') || error.message?.includes('access denied')) {
-        errorMessage = "You don't have permission to generate passes for this customer.";
-      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
-        errorMessage = "Network error. Please check your connection and try again.";
-      } else if (error.message?.includes('Function not found')) {
-        errorMessage = "The wallet pass function is not deployed. Please check the Supabase Edge Functions.";
-      }
+      console.error('❌ Error with wallet pass feature:', error);
       
       toast({
-        title: "Generation Failed",
-        description: errorMessage,
-        variant: "destructive",
+        title: "Feature Not Available",
+        description: "Apple Wallet integration is coming soon. Please check back later.",
       });
     } finally {
       setIsGenerating(false);

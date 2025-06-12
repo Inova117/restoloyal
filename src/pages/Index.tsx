@@ -9,202 +9,206 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserRole, getAvailableTabs, returnToPlatform, returnToHQ } from '@/hooks/useUserRole';
 import ClientList from '@/components/ClientList';
 import AddStampDialog from '@/components/AddStampDialog';
-import AddClientDialog from '@/components/AddClientDialog';
+import AddCustomerDialog from '@/components/AddCustomerDialog';
+import AddLocationDialog from '@/components/AddLocationDialog';
+import AddStaffDialog from '@/components/AddStaffDialog';
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 import GallettiHQDashboard from '@/components/GallettiHQDashboard';
 import ZerionPlatformDashboard from '@/components/ZerionPlatformDashboard';
 import POSInterface from '@/components/POSInterface';
-
-interface Restaurant {
-  id: string;
-  name: string;
-  stamps_required: number;
-  address?: string | null;
-  created_at: string;
-  email?: string | null;
-  phone?: string | null;
-  reward_description?: string | null;
-  updated_at: string;
-  user_id: string;
-}
-
-interface Client {
-  id: string;
-  name: string;
-  email: string | null;
-  phone: string | null;
-  stamps: number;
-  qr_code: string;
-  created_at: string;
-  restaurant_id: string;
-  updated_at: string;
-}
+import type { Customer, Location, Client } from '@/types/database';
 
 const Index = () => {
   const { user, signOut } = useAuth();
-  const { role, isLoading: roleLoading, restaurantName, isViewingAsAdmin } = useUserRole();
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [isAddClientOpen, setIsAddClientOpen] = useState(false);
-  const [isAddStampOpen, setIsAddStampOpen] = useState(false);
-  const [showPlatformSettings, setShowPlatformSettings] = useState(false);
-  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [pageLoaded, setPageLoaded] = useState(true);
   const navigate = useNavigate();
+  const { role, roleData, loading: roleLoading, error: roleError } = useUserRole();
+  
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [loading, setLoading] = useState(true);
+  const [pageLoaded, setPageLoaded] = useState(false);
+  
+  // State for different user contexts
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [currentLocation, setCurrentLocation] = useState<Location | null>(null);
+  const [currentClient, setCurrentClient] = useState<Client | null>(null);
 
   useEffect(() => {
     const loadInitialData = async () => {
-      if (!user || loading || role === 'location_staff') return
+      if (!user || !role || !roleData) {
+        setLoading(false);
+        return;
+      }
 
       try {
-        // 🔒 SECURITY: Log role context only, not sensitive user data
-        if (import.meta.env.DEV) {
-          console.log('🔍 Loading dashboard data for role:', role);
-          console.log('🔍 User ID:', user.id);
-          console.log('🔍 Loading state:', loading);
-          console.log('🔍 Role loading state:', roleLoading);
-        }
+        setLoading(true);
 
-        // For ZerionCore admin - no data loading needed, just show platform dashboard
-        if (role === 'zerion_admin') {
-          if (import.meta.env.DEV) {
-            console.log('🔧 ZerionCore admin detected - skipping restaurant data loading');
-          }
-          return // ZerionCore admin uses ZerionPlatformDashboard component
-        }
-
-        // For ZerionCore admin viewing Galletti dashboard
-        if (role === 'galletti_hq' && isViewingAsAdmin) {
-          return // Skip data loading for admin view
-        }
-
-        // Check if user has a restaurant (only for restaurant owners)
-        if (role === 'restaurant_owner') {
-          const { data: restaurants, error } = await supabase
-            .from('restaurants')
-            .select('*')
-            .eq('user_id', user.id)
-
-          if (error) {
-            console.error('❌ Error fetching restaurants:', error.message)
-            throw error
-          }
-
-          if (import.meta.env.DEV) {
-            console.log('🏪 Found restaurants:', restaurants?.length || 0);
-          }
-
-          if (!restaurants || restaurants.length === 0) {
-            // 🔒 SECURITY: Safe logging without user details
-            if (import.meta.env.DEV) {
-              console.log('🆕 Creating default restaurant for new user');
-            }
-            
-            // Create default restaurant for new restaurant owners
-            const { data: newRestaurant, error: createError } = await supabase
-              .from('restaurants')
-              .insert({
-                user_id: user.id,
-                name: 'My Restaurant',
-                stamps_required: 10,
-                reward_description: 'Free item after 10 stamps'
-              })
-              .select()
-              .single()
-
-            if (createError) {
-              console.error('❌ Error creating restaurant:', createError.message)
-              toast({
-                title: "Setup Error",
-                description: "Failed to create restaurant. Please try refreshing the page.",
-                variant: "destructive",
-              })
-              return
-            }
-
-            if (newRestaurant) {
-              setRestaurant(newRestaurant as Restaurant)
-            }
-            setClients([]) // New restaurant has no clients yet
-          } else {
-            const firstRestaurant = restaurants[0];
-            if (firstRestaurant) {
-              setRestaurant(firstRestaurant as Restaurant)
-              
-              // 🔍 ENHANCED CLIENT LOADING with better error handling
-              if (import.meta.env.DEV) {
-                console.log('🔍 Loading clients for restaurant:', firstRestaurant.id);
-              }
-
-              // Load from 'clients' table (legacy but working)
-              const { data: clientsData, error: clientsError } = await supabase
-                .from('clients')
-                .select('*')
-                .eq('restaurant_id', firstRestaurant.id)
-                .order('created_at', { ascending: false })
-
-              if (clientsError) {
-                console.error('❌ Error fetching clients:', clientsError.message)
-                toast({
-                  title: "Data Loading Error",
-                  description: "Could not load customer data. Please check your database connection.",
-                  variant: "destructive",
-                })
-              } else {
-                setClients((clientsData || []) as Client[])
-                if (import.meta.env.DEV) {
-                  console.log('📊 Final clients loaded:', clientsData?.length || 0);
-                }
-              }
-            }
-          }
+        switch (role) {
+          case 'superadmin':
+            await loadSuperadminData();
+            break;
+          case 'client_admin':
+            await loadClientAdminData();
+            break;
+          case 'location_staff':
+            await loadLocationStaffData();
+            break;
+          case 'customer':
+            await loadCustomerData();
+            break;
+          default:
+            console.warn('Unknown role:', role);
         }
       } catch (error) {
-        // 🔒 SECURITY: Safe error logging
-        console.error('❌ Error loading initial data:', error instanceof Error ? error.message : 'Unknown error')
+        console.error('Error loading initial data:', error);
         toast({
           title: "Connection Error",
           description: "Failed to load dashboard data. Please refresh the page.",
           variant: "destructive",
-        })
+        });
       } finally {
-        setLoading(false)
-        // Trigger page loaded animation after a short delay
-        setTimeout(() => setPageLoaded(true), 100)
-        
-        if (import.meta.env.DEV) {
-          console.log('🎬 Page loading complete, setting pageLoaded to true');
-        }
+        setLoading(false);
+        setTimeout(() => setPageLoaded(true), 100);
       }
+    };
+
+    loadInitialData();
+  }, [user, role, roleData]);
+
+  const loadSuperadminData = async () => {
+    // Load all clients for platform overview
+    const { data: clientsData, error: clientsError } = await (supabase as any)
+      .from('clients')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (clientsError) {
+      console.error('Error loading clients:', clientsError);
+    } else {
+      setClients(clientsData || []);
+    }
+  };
+
+  const loadClientAdminData = async () => {
+    const clientAdmin = roleData as any;
+    const clientId = clientAdmin.client_id;
+
+    // Load client data
+    const { data: clientData } = await (supabase as any)
+      .from('clients')
+      .select('*')
+      .eq('id', clientId)
+      .single();
+
+    if (clientData) {
+      setCurrentClient(clientData);
     }
 
-    loadInitialData()
-  }, [user, loading, role, isViewingAsAdmin])
+    // Load locations for this client
+    const { data: locationsData, error: locationsError } = await (supabase as any)
+      .from('locations')
+      .select('*')
+      .eq('client_id', clientId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
 
-  // Ensure pageLoaded gets set even if data loading doesn't run
-  useEffect(() => {
-    if (!loading && !roleLoading) {
-      const timer = setTimeout(() => {
-        setPageLoaded(true);
-        if (import.meta.env.DEV) {
-          console.log('🎬 Fallback: Setting pageLoaded to true');
-        }
-      }, 200);
-      
-      return () => clearTimeout(timer);
+    if (locationsError) {
+      console.error('Error loading locations:', locationsError);
+    } else {
+      setLocations(locationsData || []);
     }
-  }, [loading, roleLoading]);
 
-  // Debug logging for render
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      console.log('🎨 Rendering dashboard for role:', role, 'pageLoaded:', pageLoaded);
-      if (role === 'zerion_admin') {
-        console.log('🎨 Rendering ZerionCore Admin Layout');
-      }
+    // Load customers across all locations
+    const { data: customersData, error: customersError } = await (supabase as any)
+      .from('customers')
+      .select(`
+        *,
+        locations (
+          id,
+          name
+        )
+      `)
+      .eq('client_id', clientId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false });
+
+    if (customersError) {
+      console.error('Error loading customers:', customersError);
+    } else {
+      setCustomers(customersData || []);
     }
-  }, [role, pageLoaded]);
+  };
+
+  const loadLocationStaffData = async () => {
+    const locationStaff = roleData as any;
+    const locationId = locationStaff.location_id;
+    const clientId = locationStaff.client_id;
+
+    // Load location data
+    const { data: locationData } = await (supabase as any)
+      .from('locations')
+      .select('*')
+      .eq('id', locationId)
+      .single();
+
+    if (locationData) {
+      setCurrentLocation(locationData);
+    }
+
+    // Load client data
+    const { data: clientData } = await (supabase as any)
+      .from('clients')
+      .select('*')
+      .eq('id', clientId)
+      .single();
+
+    if (clientData) {
+      setCurrentClient(clientData);
+    }
+
+    // Load customers for this location
+    const { data: customersData, error: customersError } = await (supabase as any)
+      .from('customers')
+      .select('*')
+      .eq('location_id', locationId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false });
+
+    if (customersError) {
+      console.error('Error loading customers:', customersError);
+    } else {
+      setCustomers(customersData || []);
+    }
+  };
+
+  const loadCustomerData = async () => {
+    const customer = roleData as any;
+    const locationId = customer.location_id;
+    const clientId = customer.client_id;
+
+    // Load location data
+    const { data: locationData } = await (supabase as any)
+      .from('locations')
+      .select('*')
+      .eq('id', locationId)
+      .single();
+
+    if (locationData) {
+      setCurrentLocation(locationData);
+    }
+
+    // Load client data
+    const { data: clientData } = await (supabase as any)
+      .from('clients')
+      .select('*')
+      .eq('id', clientId)
+      .single();
+
+    if (clientData) {
+      setCurrentClient(clientData);
+    }
+  };
 
   // Set default tab based on role
   useEffect(() => {
@@ -216,54 +220,33 @@ const Index = () => {
     }
   }, [role, roleLoading]);
 
-  const totalClients = clients.length;
-  const totalStamps = clients.reduce((sum, client) => sum + client.stamps, 0);
-  const readyForReward = clients.filter(client => 
-    client.stamps >= (restaurant?.stamps_required || 10)
-  ).length;
+  const refreshCustomers = async () => {
+    if (!role || !roleData) return;
 
-  const refreshClients = async () => {
-    if (!restaurant) {
-      if (import.meta.env.DEV) {
-        console.warn('⚠️ Cannot refresh clients: no restaurant loaded');
+    try {
+      switch (role) {
+        case 'client_admin':
+          await loadClientAdminData();
+          break;
+        case 'location_staff':
+          await loadLocationStaffData();
+          break;
+        default:
+          break;
       }
-      return;
-    }
-    
-    if (import.meta.env.DEV) {
-      console.log('🔄 Refreshing clients for restaurant:', restaurant.id);
-    }
-    
-    const { data: clientsData, error } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('restaurant_id', restaurant.id)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('❌ Error refreshing clients:', error.message);
+    } catch (error) {
+      console.error('Error refreshing customers:', error);
       toast({
         title: "Refresh Error",
         description: "Could not refresh customer data. Please try again.",
         variant: "destructive",
-      })
-    } else {
-      setClients((clientsData || []) as Client[]);
-      if (import.meta.env.DEV) {
-        console.log('✅ Clients refreshed successfully:', clientsData?.length || 0);
-      }
+      });
     }
   };
 
-  // Transform clients to include maxStamps for ClientList component
-  const transformedClients = clients.map(client => ({
-    ...client,
-    maxStamps: restaurant?.stamps_required || 10
-  })) as any; // Type assertion to handle the component interface mismatch
-
   const availableTabs = getAvailableTabs(role);
 
-  if (roleLoading) {
+  if (roleLoading || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-editorial">
@@ -277,377 +260,315 @@ const Index = () => {
     );
   }
 
-  // ✅ SINGLE RETURN WITH CONDITIONAL CONTENT - FIXES REACT ERROR #310
+  if (roleError) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="text-red-500 text-lg font-semibold">Access Error</div>
+          <div className="text-muted-foreground">{roleError}</div>
+          <Button onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!role) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="text-lg font-semibold">No Role Assigned</div>
+          <div className="text-muted-foreground">
+            Your account doesn't have a role assigned. Please contact your administrator.
+          </div>
+          <Button onClick={() => signOut()}>
+            Sign Out
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/auth');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  const getRoleIcon = () => {
+    switch (role) {
+      case 'superadmin':
+        return <Crown className="h-5 w-5" />;
+      case 'client_admin':
+        return <Building2 className="h-5 w-5" />;
+      case 'location_staff':
+        return <Store className="h-5 w-5" />;
+      case 'customer':
+        return <Users className="h-5 w-5" />;
+      default:
+        return <Users className="h-5 w-5" />;
+    }
+  };
+
+  const getRoleTitle = () => {
+    switch (role) {
+      case 'superadmin':
+        return 'Platform Administrator';
+      case 'client_admin':
+        return `${currentClient?.name || 'Client'} Administrator`;
+      case 'location_staff':
+        return `${currentLocation?.name || 'Location'} Staff`;
+      case 'customer':
+        return 'Customer Portal';
+      default:
+        return 'Dashboard';
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background page-enter">
-      <div className="container-editorial section-editorial-sm">
-        
-        {/* Debug logging for render */}
-        {/* Debug logging moved to useEffect */}
-        
-        {/* ZerionCore Admin Layout */}
-        {role === 'zerion_admin' && (
-          <>
-            <div className="dashboard-header slide-in-left">
-              <div className="dashboard-header-title">
-                <div className="p-4 bg-sage-turquoise-100 rounded-2xl hover-glow">
-                  <Crown className="w-10 h-10 text-sage-turquoise-600 icon-bounce" />
-                </div>
-                <div className="space-y-2">
-                  <h1 className="text-4xl lg:text-5xl font-editorial font-bold text-balance">Fydely HQ</h1>
-                  <p className="text-muted-foreground text-xl leading-relaxed">Enterprise business loyalty management</p>
-                </div>
-              </div>
-              <div className="dashboard-header-actions slide-in-right">
-                <Button 
-                  variant="outline" 
-                  effect="lift"
-                  onClick={() => navigate('/restaurants')}
-                  className="space-x-2"
-                >
-                  <Store className="w-4 h-4" />
-                  <span>Restaurant Management</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  effect="lift"
-                  onClick={() => setShowPlatformSettings(true)}
-                  className="space-x-2"
-                >
-                  <Settings className="w-4 h-4" />
-                  <span>Platform Settings</span>
-                </Button>
-                <Button variant="outline" effect="lift" onClick={signOut} className="space-x-2">
-                  <LogOut className="w-4 h-4" />
-                  <span>Sign Out</span>
-                </Button>
-              </div>
+    <div className={`min-h-screen bg-background transition-opacity duration-500 ${pageLoaded ? 'opacity-100' : 'opacity-0'}`}>
+      <div className="border-b bg-card">
+        <div className="flex h-16 items-center px-4 justify-between">
+          <div className="flex items-center space-x-4">
+            {getRoleIcon()}
+            <div>
+              <h1 className="text-xl font-semibold">{getRoleTitle()}</h1>
+              {role !== 'superadmin' && (
+                <p className="text-sm text-muted-foreground">
+                  {role === 'customer' ? currentLocation?.name : 
+                   role === 'location_staff' ? `${currentClient?.name} - ${currentLocation?.name}` :
+                   currentClient?.name}
+                </p>
+              )}
             </div>
-            
-            <div className="tab-content-enter">
-              <ZerionPlatformDashboard 
-                showPlatformSettings={showPlatformSettings}
-                setShowPlatformSettings={setShowPlatformSettings}
-              />
-            </div>
-          </>
-        )}
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            {role === 'client_admin' && (
+              <Button variant="outline" size="sm" onClick={returnToHQ}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Return to HQ
+              </Button>
+            )}
+            {role === 'superadmin' && (
+              <Button variant="outline" size="sm" onClick={returnToPlatform}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Platform View
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={handleSignOut}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
+        </div>
+      </div>
 
-        {/* Galletti HQ Layout */}
-        {role === 'galletti_hq' && (
-          <>
-            <div className="dashboard-header slide-in-left">
-              <div className="dashboard-header-title">
-                <div className="p-4 bg-sage-turquoise-100 rounded-2xl hover-glow">
-                  <Building2 className="w-10 h-10 text-sage-turquoise-600 hover-scale" />
-                </div>
-                <div className="space-y-2">
-                  <h1 className="text-4xl lg:text-5xl font-editorial font-bold text-balance">Galletti HQ Dashboard</h1>
-                  <p className="text-muted-foreground text-xl leading-relaxed">Multi-location restaurant management</p>
-                </div>
-              </div>
-              <div className="dashboard-header-actions slide-in-right">
-                {isViewingAsAdmin && (
-                  <Button variant="outline" effect="lift" onClick={returnToPlatform} className="space-x-2">
-                    <ArrowLeft className="w-4 h-4" />
-                    <span>Back to Platform</span>
-                  </Button>
-                )}
-                <Button 
-                  variant="outline" 
-                  effect="lift"
-                  onClick={() => navigate('/restaurants')}
-                  className="space-x-2"
-                >
-                  <Store className="w-4 h-4" />
-                  <span>Restaurant Management</span>
-                </Button>
-                <Button variant="outline" effect="lift" onClick={signOut} className="space-x-2">
-                  <LogOut className="w-4 h-4" />
-                  <span>Sign Out</span>
-                </Button>
-              </div>
-            </div>
-            
-            <div className="tab-content-enter">
-              <GallettiHQDashboard />
-            </div>
-          </>
-        )}
+      <div className="container mx-auto p-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+            {availableTabs.map((tab) => (
+              <TabsTrigger key={tab} value={tab} className="capitalize">
+                {tab === 'platform' && <Crown className="h-4 w-4 mr-2" />}
+                {tab === 'dashboard' && <BarChart3 className="h-4 w-4 mr-2" />}
+                {tab === 'clients' && <Building2 className="h-4 w-4 mr-2" />}
+                {tab === 'locations' && <Store className="h-4 w-4 mr-2" />}
+                {tab === 'customers' && <Users className="h-4 w-4 mr-2" />}
+                {tab === 'stamps' && <Plus className="h-4 w-4 mr-2" />}
+                {tab === 'rewards' && <Gift className="h-4 w-4 mr-2" />}
+                {tab === 'analytics' && <BarChart3 className="h-4 w-4 mr-2" />}
+                {tab === 'settings' && <Settings className="h-4 w-4 mr-2" />}
+                {tab === 'loyalty' && <QrCode className="h-4 w-4 mr-2" />}
+                {tab === 'history' && <Scan className="h-4 w-4 mr-2" />}
+                {tab}
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
-        {/* Location Staff Layout */}
-        {role === 'location_staff' && (
-          <>
-            <div className="dashboard-header slide-in-left">
-              <div className="dashboard-header-title">
-                <div className="p-4 bg-sage-turquoise-100 rounded-2xl hover-glow">
-                  <Store className="w-10 h-10 text-sage-turquoise-600 hover-scale" />
-                </div>
-                <div className="space-y-2">
-                  <h1 className="text-4xl lg:text-5xl font-editorial font-bold text-balance">{restaurantName || 'Restaurant'} Dashboard</h1>
-                  <p className="text-muted-foreground text-xl leading-relaxed">Location staff interface</p>
-                </div>
-              </div>
-              <div className="dashboard-header-actions slide-in-right">
-                {isViewingAsAdmin && (
-                  <Button variant="outline" effect="lift" onClick={returnToHQ} className="space-x-2">
-                    <ArrowLeft className="w-4 h-4" />
-                    <span>Back to HQ</span>
-                  </Button>
-                )}
-                {user?.user_metadata?.role === 'client_admin' && (
-                  <Button 
-                    variant="default" 
-                    effect="glow" 
-                    onClick={() => {
-                      // Force switch to client admin view
-                      sessionStorage.removeItem('force_location_staff')
-                      sessionStorage.setItem('force_client_admin', 'true')
-                      window.location.reload()
-                    }} 
-                    className="space-x-2"
-                  >
-                    <Crown className="w-4 h-4" />
-                    <span>Client Dashboard</span>
-                  </Button>
-                )}
-                <Button variant="outline" effect="lift" onClick={signOut} className="space-x-2">
-                  <LogOut className="w-4 h-4" />
-                  <span>Sign Out</span>
-                </Button>
-              </div>
-            </div>
-
-            <Tabs 
-              value={availableTabs.includes(activeTab) ? activeTab : availableTabs[0]} 
-              onValueChange={setActiveTab} 
-              className="content-section"
-            >
-              <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:grid-cols-none lg:flex">
-                {availableTabs.includes('pos') && (
-                  <TabsTrigger value="pos" className="space-x-2 interactive-subtle">
-                    <Scan className="w-4 h-4" />
-                    <span>POS System</span>
-                  </TabsTrigger>
-                )}
-                {availableTabs.includes('customers') && (
-                  <TabsTrigger value="customers" className="space-x-2 interactive-subtle">
-                    <Users className="w-4 h-4" />
-                    <span>Customers</span>
-                  </TabsTrigger>
-                )}
-                {availableTabs.includes('analytics') && (
-                  <TabsTrigger value="analytics" className="space-x-2 interactive-subtle">
-                    <BarChart3 className="w-4 h-4" />
-                    <span>Analytics</span>
-                  </TabsTrigger>
-                )}
-              </TabsList>
-
-              <TabsContent value="pos" className="content-section tab-content-enter">
-                <POSInterface />
+          {/* Superadmin Platform View */}
+          {role === 'superadmin' && (
+            <>
+              <TabsContent value="platform">
+                <ZerionPlatformDashboard />
               </TabsContent>
-
-              <TabsContent value="customers" className="content-section tab-content-enter">
-                <div className="action-bar">
-                  <div className="content-section-header">
-                    <h2 className="content-section-title">Customer Management</h2>
-                    <p className="content-section-description">Manage customer loyalty and rewards</p>
-                  </div>
-                  <div className="action-group">
-                    <Button onClick={() => setIsAddClientOpen(true)} effect="lift" className="space-x-2">
-                      <Plus className="w-4 h-4" />
-                      <span>Add Customer</span>
-                    </Button>
-                    <Button onClick={() => setIsAddStampOpen(true)} variant="sage" effect="glow" className="space-x-2">
-                      <Gift className="w-4 h-4" />
-                      <span>Add Stamp</span>
-                    </Button>
-                  </div>
-                </div>
-                
-                <ClientList 
-                  clients={transformedClients} 
-                  restaurantId={restaurant?.id}
-                  onRefresh={refreshClients}
-                />
-              </TabsContent>
-
-              <TabsContent value="analytics" className="content-section tab-content-enter">
+                             <TabsContent value="clients">
+                 <div className="space-y-6">
+                   <div className="flex justify-between items-center">
+                     <h2 className="text-2xl font-bold">Platform Clients</h2>
+                     <ClientList refreshTrigger={0} />
+                   </div>
+                 </div>
+               </TabsContent>
+              <TabsContent value="analytics">
                 <AnalyticsDashboard />
               </TabsContent>
-            </Tabs>
-          </>
-        )}
+            </>
+          )}
 
-        {/* Restaurant Owner Layout - Default */}
-        {role === 'restaurant_owner' && (
-          <>
-            <div className="dashboard-header slide-in-left">
-              <div className="dashboard-header-title">
-                <div className="p-4 bg-sage-turquoise-100 rounded-2xl hover-glow">
-                  <Store className="w-10 h-10 text-sage-turquoise-600 hover-scale" />
-                </div>
-                <div className="space-y-2">
-                  <h1 className="text-4xl lg:text-5xl font-editorial font-bold text-balance">
-                    {restaurant?.name || 'Restaurant'} Loyalty
-                  </h1>
-                  <p className="text-muted-foreground text-xl leading-relaxed">Manage your customer loyalty program</p>
-                </div>
-              </div>
-              <Button variant="outline" effect="lift" onClick={signOut} className="space-x-2 slide-in-right">
-                <LogOut className="w-4 h-4" />
-                <span>Sign Out</span>
-              </Button>
-            </div>
-
-            {/* Stats Overview */}
-            <div className="stats-grid stagger-fade-in">
-              <div className="stats-card interactive-card">
-                <div className="stats-card-header">
-                  <h3 className="hierarchy-secondary">Total Customers</h3>
-                  <Users className="h-6 w-6 text-sage-turquoise-600 hover-scale" />
-                </div>
-                <div className="stats-card-value text-sage-turquoise-600">{totalClients}</div>
-                <p className="stats-card-label">Active loyalty members</p>
-              </div>
-              
-              <div className="stats-card interactive-card">
-                <div className="stats-card-header">
-                  <h3 className="hierarchy-secondary">Total Stamps</h3>
-                  <Gift className="h-6 w-6 text-soft-emerald-500 hover-scale" />
-                </div>
-                <div className="stats-card-value text-soft-emerald-500">{totalStamps}</div>
-                <p className="stats-card-label">Stamps collected</p>
-              </div>
-              
-              <div className="stats-card interactive-card">
-                <div className="stats-card-header">
-                  <h3 className="hierarchy-secondary">Ready for Reward</h3>
-                  <QrCode className="h-6 w-6 text-soft-amber-500 hover-scale" />
-                </div>
-                <div className="stats-card-value text-soft-amber-500">{readyForReward}</div>
-                <p className="stats-card-label">Customers eligible</p>
-              </div>
-            </div>
-
-            <Tabs 
-              value={availableTabs.includes(activeTab) ? activeTab : availableTabs[0]} 
-              onValueChange={setActiveTab} 
-              className="content-section"
-            >
-              <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:grid-cols-none lg:flex">
-                <TabsTrigger value="dashboard" className="space-x-2 interactive-subtle">
-                  <Store className="w-4 h-4" />
-                  <span>Dashboard</span>
-                </TabsTrigger>
-                <TabsTrigger value="customers" className="space-x-2 interactive-subtle">
-                  <Users className="w-4 h-4" />
-                  <span>Customers</span>
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="dashboard" className="content-section tab-content-enter">
-                <div className="content-section-header">
-                  <h2 className="content-section-title">Quick Actions</h2>
-                  <p className="content-section-description">Common tasks and operations</p>
-                </div>
-                
-                <div className="grid-editorial-sm grid-cols-1 md:grid-cols-2 lg:grid-cols-4 stagger-fade-in">
-                  <div className="card-editorial-compact interactive-card" onClick={() => setIsAddClientOpen(true)}>
-                    <div className="flex flex-col items-center text-center space-y-6">
-                      <div className="p-6 bg-sage-turquoise-100 rounded-2xl hover-glow">
-                        <Plus className="w-10 h-10 text-sage-turquoise-600 hover-scale" />
+          {/* Client Admin Views */}
+          {role === 'client_admin' && (
+            <>
+              <TabsContent value="dashboard">
+                <GallettiHQDashboard />
+              </TabsContent>
+              <TabsContent value="locations">
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold">Locations</h2>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {locations.map((location) => (
+                      <div key={location.id} className="p-4 border rounded-lg">
+                        <h3 className="font-semibold">{location.name}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {location.address}, {location.city}, {location.state}
+                        </p>
+                        <div className="mt-2 flex space-x-2">
+                          <Button size="sm" variant="outline">
+                            View Details
+                          </Button>
+                          <Button size="sm" variant="outline">
+                            Manage Staff
+                          </Button>
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <h3 className="hierarchy-primary text-lg">Add Customer</h3>
-                        <p className="hierarchy-tertiary">Register new loyalty member</p>
-                      </div>
-                    </div>
+                    ))}
                   </div>
+                </div>
+              </TabsContent>
+                             <TabsContent value="customers">
+                 <div className="space-y-6">
+                   <div className="flex justify-between items-center">
+                     <h2 className="text-2xl font-bold">All Customers</h2>
+                     <div className="flex gap-2">
+                       <AddCustomerDialog onCustomerAdded={refreshCustomers} />
+                       <AddLocationDialog onLocationAdded={() => window.location.reload()} />
+                       <AddStaffDialog onStaffAdded={() => window.location.reload()} />
+                     </div>
+                   </div>
+                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                     {customers.map((customer) => (
+                       <div key={customer.id} className="p-4 border rounded-lg">
+                         <h3 className="font-semibold">{customer.name}</h3>
+                         <p className="text-sm text-muted-foreground">
+                           Stamps: {customer.total_stamps} • Visits: {customer.total_visits}
+                         </p>
+                         <div className="mt-2 flex space-x-2">
+                           <Button size="sm" variant="outline">
+                             View Details
+                           </Button>
+                           <AddStampDialog 
+                             customerId={customer.id}
+                             onStampAdded={refreshCustomers}
+                             trigger={
+                               <Button size="sm" variant="outline">
+                                 Add Stamp
+                               </Button>
+                             }
+                           />
+                         </div>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               </TabsContent>
+              <TabsContent value="analytics">
+                <AnalyticsDashboard />
+              </TabsContent>
+            </>
+          )}
 
-                  <div className="card-editorial-compact interactive-card" onClick={() => setIsAddStampOpen(true)}>
-                    <div className="flex flex-col items-center text-center space-y-6">
-                      <div className="p-6 bg-soft-emerald-100 rounded-2xl hover-glow">
-                        <Gift className="w-10 h-10 text-soft-emerald-500 hover-scale" />
-                      </div>
-                      <div className="space-y-2">
-                        <h3 className="hierarchy-primary text-lg">Add Stamp</h3>
-                        <p className="hierarchy-tertiary">Reward customer visit</p>
-                      </div>
-                    </div>
-                  </div>
+          {/* Location Staff Views */}
+          {role === 'location_staff' && (
+            <>
+              <TabsContent value="dashboard">
+                <POSInterface />
+              </TabsContent>
+                             <TabsContent value="customers">
+                 <div className="space-y-6">
+                   <div className="flex justify-between items-center">
+                     <h2 className="text-2xl font-bold">Location Customers</h2>
+                     <AddCustomerDialog onCustomerAdded={refreshCustomers} />
+                   </div>
+                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                     {customers.map((customer) => (
+                       <div key={customer.id} className="p-4 border rounded-lg">
+                         <h3 className="font-semibold">{customer.name}</h3>
+                         <p className="text-sm text-muted-foreground">
+                           Stamps: {customer.total_stamps} • Visits: {customer.total_visits}
+                         </p>
+                         <div className="mt-2 flex space-x-2">
+                           <Button size="sm" variant="outline">
+                             View Details
+                           </Button>
+                           <AddStampDialog 
+                             customerId={customer.id}
+                             onStampAdded={refreshCustomers}
+                             trigger={
+                               <Button size="sm" variant="outline">
+                                 Add Stamp
+                               </Button>
+                             }
+                           />
+                         </div>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               </TabsContent>
+               <TabsContent value="stamps">
+                 <div className="space-y-6">
+                   <div className="flex justify-between items-center">
+                     <h2 className="text-2xl font-bold">Add Stamps</h2>
+                     <AddStampDialog onStampAdded={refreshCustomers} />
+                   </div>
+                   <div className="p-4 border rounded-lg">
+                     <p className="text-muted-foreground">
+                       Select a customer and add stamps to their loyalty card.
+                     </p>
+                   </div>
+                 </div>
+               </TabsContent>
+            </>
+          )}
 
-                  <div className="card-editorial-compact interactive-card">
-                    <div className="flex flex-col items-center text-center space-y-6">
-                      <div className="p-6 bg-soft-amber-100 rounded-2xl hover-glow">
-                        <Scan className="w-10 h-10 text-soft-amber-500 hover-scale" />
-                      </div>
-                      <div className="space-y-2">
-                        <h3 className="hierarchy-primary text-lg">Scan QR Code</h3>
-                        <p className="hierarchy-tertiary">Quick customer lookup</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="card-editorial-compact interactive-card">
-                    <div className="flex flex-col items-center text-center space-y-6">
-                      <div className="p-6 bg-soft-rose-100 rounded-2xl hover-glow">
-                        <BarChart3 className="w-10 h-10 text-soft-rose-400 hover-scale" />
-                      </div>
-                      <div className="space-y-2">
-                        <h3 className="hierarchy-primary text-lg">View Analytics</h3>
-                        <p className="hierarchy-tertiary">Track performance</p>
-                      </div>
+          {/* Customer Views */}
+          {role === 'customer' && (
+            <>
+              <TabsContent value="loyalty">
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold">My Loyalty Card</h2>
+                  <div className="p-6 border rounded-lg">
+                    <h3 className="font-semibold mb-2">
+                      {currentLocation?.name}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Stamps: {(roleData as any)?.total_stamps || 0} / {currentClient?.settings?.stamps_required_for_reward || 10}
+                    </p>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full" 
+                        style={{ 
+                          width: `${Math.min(100, ((roleData as any)?.total_stamps || 0) / (currentClient?.settings?.stamps_required_for_reward || 10) * 100)}%` 
+                        }}
+                      ></div>
                     </div>
                   </div>
                 </div>
               </TabsContent>
-
-              <TabsContent value="customers" className="content-section tab-content-enter">
-                <div className="action-bar">
-                  <div className="content-section-header">
-                    <h2 className="content-section-title">Customer Management</h2>
-                    <p className="content-section-description">Manage your loyalty program members</p>
-                  </div>
-                  <div className="action-group">
-                    <Button onClick={() => setIsAddClientOpen(true)} effect="lift" className="space-x-2">
-                      <Plus className="w-4 h-4" />
-                      <span>Add Customer</span>
-                    </Button>
-                    <Button onClick={() => setIsAddStampOpen(true)} variant="sage" effect="glow" className="space-x-2">
-                      <Gift className="w-4 h-4" />
-                      <span>Add Stamp</span>
-                    </Button>
-                  </div>
+              <TabsContent value="rewards">
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold">Available Rewards</h2>
+                  <p className="text-muted-foreground">
+                    Earn {currentClient?.settings?.stamps_required_for_reward || 10} stamps to unlock rewards!
+                  </p>
                 </div>
-                
-                <ClientList 
-                  clients={transformedClients} 
-                  restaurantId={restaurant?.id}
-                  onRefresh={refreshClients}
-                />
               </TabsContent>
-            </Tabs>
-          </>
-        )}
-
-        {/* Dialogs - Always rendered */}
-        <AddClientDialog 
-          open={isAddClientOpen} 
-          onOpenChange={setIsAddClientOpen}
-          restaurantId={restaurant?.id}
-          onClientAdded={refreshClients}
-        />
-        
-        <AddStampDialog 
-          open={isAddStampOpen} 
-          onOpenChange={setIsAddStampOpen}
-          clients={transformedClients}
-          restaurantId={restaurant?.id}
-          stampsRequired={restaurant?.stamps_required || 10}
-          onStampAdded={refreshClients}
-        />
+            </>
+          )}
+        </Tabs>
       </div>
     </div>
   );

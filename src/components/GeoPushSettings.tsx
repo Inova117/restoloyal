@@ -46,20 +46,23 @@ const GeoPushSettings = ({ restaurantId }: GeoPushSettingsProps) => {
     if (!restaurantId) return;
 
     try {
-      const { data, error } = await supabase
-        .from('restaurants')
-        .select('latitude, longitude, notification_radius, notification_message, geo_notifications_enabled')
+      // Use clients table instead of restaurants
+      const { data, error } = await (supabase as any)
+        .from('clients')
+        .select('settings')
         .eq('id', restaurantId)
         .single();
 
       if (error) throw error;
 
+      // Extract geo settings from the settings JSONB field
+      const geoSettings = data.settings || {};
       setSettings({
-        latitude: data.latitude,
-        longitude: data.longitude,
-        notification_radius: data.notification_radius || 500,
-        notification_message: data.notification_message || '',
-        geo_notifications_enabled: data.geo_notifications_enabled ?? true
+        latitude: geoSettings.latitude || null,
+        longitude: geoSettings.longitude || null,
+        notification_radius: geoSettings.notification_radius || 500,
+        notification_message: geoSettings.notification_message || '',
+        geo_notifications_enabled: geoSettings.geo_notifications_enabled ?? true
       });
     } catch (error: any) {
       console.error('Error fetching settings:', error);
@@ -142,14 +145,27 @@ const GeoPushSettings = ({ restaurantId }: GeoPushSettingsProps) => {
     setIsSaving(true);
 
     try {
-      const { error } = await supabase
-        .from('restaurants')
+      // Get current settings first
+      const { data: currentData } = await (supabase as any)
+        .from('clients')
+        .select('settings')
+        .eq('id', restaurantId)
+        .single();
+
+      const currentSettings = currentData?.settings || {};
+
+      // Update clients table with geo settings in the settings JSONB field
+      const { error } = await (supabase as any)
+        .from('clients')
         .update({
-          latitude: settings.latitude,
-          longitude: settings.longitude,
-          notification_radius: settings.notification_radius,
-          notification_message: settings.notification_message,
-          geo_notifications_enabled: settings.geo_notifications_enabled
+          settings: {
+            ...currentSettings,
+            latitude: settings.latitude,
+            longitude: settings.longitude,
+            notification_radius: settings.notification_radius,
+            notification_message: settings.notification_message,
+            geo_notifications_enabled: settings.geo_notifications_enabled
+          }
         })
         .eq('id', restaurantId);
 
@@ -173,6 +189,43 @@ const GeoPushSettings = ({ restaurantId }: GeoPushSettingsProps) => {
 
   const handleInputChange = (field: keyof LocationSettings, value: any) => {
     setSettings(prev => ({ ...prev, [field]: value }));
+  };
+
+  const updateSettings = async () => {
+    if (!restaurantId) return
+    
+    setIsLoading(true)
+    try {
+      // Update client settings instead of restaurant settings
+      const { error } = await (supabase as any)
+        .from('clients')
+        .update({
+          settings: {
+            ...settings,
+            geo_push_enabled: settings.geo_notifications_enabled,
+            geo_push_radius: settings.notification_radius,
+            geo_push_message: settings.notification_message,
+            geo_push_frequency: settings.geo_notifications_enabled ? 'daily' : 'none'
+          }
+        })
+        .eq('id', restaurantId)
+
+      if (error) throw error;
+
+      toast({
+        title: "Settings Saved",
+        description: "Geolocation settings have been updated successfully.",
+      });
+    } catch (error: any) {
+      console.error('Error saving settings:', error);
+      toast({
+        title: "Save Failed",
+        description: "Failed to save settings. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isLoading) {
@@ -318,12 +371,12 @@ const GeoPushSettings = ({ restaurantId }: GeoPushSettingsProps) => {
 
           {/* Save Button */}
           <Button
-            onClick={handleSave}
-            disabled={isSaving || !settings.latitude || !settings.longitude}
+            onClick={updateSettings}
+            disabled={isLoading || !settings.latitude || !settings.longitude}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white"
             size="lg"
           >
-            {isSaving ? (
+            {isLoading ? (
               <>
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                 Saving...

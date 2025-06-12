@@ -1,251 +1,331 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { QrCode, Phone, Mail, Gift, Plus, Users } from 'lucide-react';
-import StampProgress from './StampProgress';
-import AppleWalletButton from './AppleWalletButton';
-import { toast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+// ============================================================================
+// CLIENT LIST - UPDATED FOR 4-TIER HIERARCHY
+// ============================================================================
+// This component displays and manages clients (Tier 2) in the system
+// Can only be used by superadmins (Tier 1)
+// ============================================================================
 
-interface Client {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  stamps: number;
-  maxStamps: number;
-  qr_code: string;
-  created_at: string;
+import { useState, useEffect } from 'react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { useToast } from '@/hooks/use-toast'
+import { supabase } from '@/integrations/supabase/client'
+import { useUserRole } from '@/hooks/useUserRole'
+import { Building, Users, MapPin, Mail, Phone, Calendar, MoreVertical, Eye, Edit, Trash2 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import type { Client } from '@/types/database'
+
+interface ClientWithStats extends Client {
+  location_count?: number
+  staff_count?: number
+  customer_count?: number
+  admin_count?: number
 }
 
 interface ClientListProps {
-  clients: Client[];
-  onRefresh?: () => void;
-  restaurantId?: string;
+  refreshTrigger?: number // Used to trigger refresh from parent
 }
 
-const ClientList = ({ clients, onRefresh, restaurantId }: ClientListProps) => {
-  const { user } = useAuth();
+export default function ClientList({ refreshTrigger }: ClientListProps) {
+  const [clients, setClients] = useState<ClientWithStats[]>([])
+  const [loading, setLoading] = useState(true)
+  const { role } = useUserRole()
+  const { toast } = useToast()
 
-  const handleAddStamp = async (clientId: string, clientName: string) => {
-    if (!restaurantId || !user) {
-      toast({
-        title: "Error",
-        description: "Unable to add stamp. Please try again.",
-        variant: "destructive",
-      });
-      return;
-    }
+  useEffect(() => {
+    loadClients()
+  }, [refreshTrigger])
 
+  const loadClients = async () => {
+    setLoading(true)
     try {
-      const { error } = await supabase
-        .from('stamps')
-        .insert({
-          client_id: clientId,
-          restaurant_id: restaurantId,
-          added_by: user.id,
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: "Stamp Added",
-        description: `Added stamp for ${clientName}`,
-      });
-
-      if (onRefresh) {
-        onRefresh();
-      }
-    } catch (error: any) {
-      console.error('Error adding stamp:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add stamp. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleRedeemReward = async (clientId: string, clientName: string, stamps: number) => {
-    if (!restaurantId || !user) {
-      toast({
-        title: "Error",
-        description: "Unable to redeem reward. Please try again.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      // Add reward record
-      const { error: rewardError } = await supabase
-        .from('rewards')
-        .insert({
-          client_id: clientId,
-          restaurant_id: restaurantId,
-          redeemed_by: user.id,
-          stamps_used: stamps,
-          description: 'Free item reward',
-        });
-
-      if (rewardError) throw rewardError;
-
-      // Reset client stamps to 0
-      const { error: updateError } = await supabase
+      // Get clients with basic info
+      const { data: clientsData, error: clientsError } = await (supabase as any)
         .from('clients')
-        .update({ stamps: 0 })
-        .eq('id', clientId);
+        .select(`
+          id,
+          business_name,
+          business_type,
+          contact_email,
+          contact_phone,
+          address,
+          city,
+          state,
+          country,
+          is_active,
+          created_at,
+          updated_at
+        `)
+        .order('business_name')
 
-      if (updateError) throw updateError;
+      if (clientsError) throw clientsError
 
-      toast({
-        title: "Reward Redeemed",
-        description: `${clientName} has redeemed their reward! Stamps reset to 0.`,
-      });
+      // Get stats for each client
+      const clientsWithStats = await Promise.all(
+        (clientsData || []).map(async (client) => {
+          try {
+            // Get location count
+            const { count: locationCount } = await (supabase as any)
+              .from('locations')
+              .select('*', { count: 'exact', head: true })
+              .eq('client_id', client.id)
+              .eq('is_active', true)
 
-      if (onRefresh) {
-        onRefresh();
-      }
-    } catch (error: any) {
-      console.error('Error redeeming reward:', error);
+            // Get staff count
+            const { count: staffCount } = await (supabase as any)
+              .from('location_staff')
+              .select('*', { count: 'exact', head: true })
+              .eq('client_id', client.id)
+              .eq('is_active', true)
+
+            // Get customer count
+            const { count: customerCount } = await (supabase as any)
+              .from('customers')
+              .select('*', { count: 'exact', head: true })
+              .eq('client_id', client.id)
+              .eq('is_active', true)
+
+            // Get admin count
+            const { count: adminCount } = await (supabase as any)
+              .from('client_admins')
+              .select('*', { count: 'exact', head: true })
+              .eq('client_id', client.id)
+              .eq('is_active', true)
+
+            return {
+              ...client,
+              location_count: locationCount || 0,
+              staff_count: staffCount || 0,
+              customer_count: customerCount || 0,
+              admin_count: adminCount || 0
+            }
+          } catch (error) {
+            console.error(`Error loading stats for client ${client.id}:`, error)
+            return {
+              ...client,
+              location_count: 0,
+              staff_count: 0,
+              customer_count: 0,
+              admin_count: 0
+            }
+          }
+        })
+      )
+
+      setClients(clientsWithStats)
+    } catch (error) {
+      console.error('Error loading clients:', error)
       toast({
         title: "Error",
-        description: "Failed to redeem reward. Please try again.",
-        variant: "destructive",
-      });
+        description: "Failed to load clients",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
     }
-  };
+  }
 
-  const handleShowQR = (qrCode: string, clientName: string) => {
-    toast({
-      title: "QR Code",
-      description: `QR Code for ${clientName}: ${qrCode}`,
-    });
-  };
+  const handleToggleStatus = async (clientId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await (supabase as any)
+        .from('clients')
+        .update({ 
+          is_active: !currentStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', clientId)
+
+      if (error) throw error
+
+      toast({
+        title: "Status Updated",
+        description: `Client ${!currentStatus ? 'activated' : 'deactivated'} successfully`,
+      })
+
+      loadClients() // Refresh the list
+    } catch (error) {
+      console.error('Error updating client status:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update client status",
+        variant: "destructive"
+      })
+    }
+  }
+
+  // Only superadmins can view client list
+  if (role !== 'superadmin') {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center text-muted-foreground">
+            <Building className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>Access denied. Only platform administrators can view client list.</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Building className="h-5 w-5" />
+            Clients
+          </CardTitle>
+          <CardDescription>
+            Loading client information...
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="animate-pulse">
+                <div className="h-20 bg-muted rounded-lg"></div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Client Management</h2>
-        <p className="text-gray-600">{clients.length} total clients</p>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {clients.map((client) => (
-          <Card key={client.id} className="bg-white shadow-lg border-0 hover:shadow-xl transition-all duration-200">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="text-lg font-semibold text-gray-900">
-                    {client.name}
-                  </CardTitle>
-                  <div className="space-y-1 mt-2">
-                    {client.email && (
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Mail className="w-4 h-4 mr-2" />
-                        {client.email}
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Building className="h-5 w-5" />
+          Clients ({clients.length})
+        </CardTitle>
+        <CardDescription>
+          Manage all clients in the platform
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {clients.length === 0 ? (
+          <div className="text-center py-8">
+            <Building className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-medium mb-2">No Clients Found</h3>
+            <p className="text-muted-foreground">
+              No clients have been created yet. Use the "Add Client" button to create the first client.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {clients.map((client) => (
+              <Card key={client.id} className="relative">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="flex items-center gap-2">
+                          <Building className="h-5 w-5 text-primary" />
+                          <h3 className="font-semibold text-lg">{client.business_name}</h3>
+                        </div>
+                        <Badge variant={client.is_active ? "default" : "secondary"}>
+                          {client.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                        {client.business_type && (
+                          <Badge variant="outline">
+                            {client.business_type}
+                          </Badge>
+                        )}
                       </div>
-                    )}
-                    {client.phone && (
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Phone className="w-4 h-4 mr-2" />
-                        {client.phone}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleShowQR(client.qr_code, client.name)}
-                  className="p-2"
-                >
-                  <QrCode className="w-4 h-4" />
-                </Button>
-              </div>
-            </CardHeader>
-            
-            <CardContent className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">Progress</span>
-                  <span className="text-sm text-gray-600">
-                    {client.stamps}/{client.maxStamps}
-                  </span>
-                </div>
-                <StampProgress 
-                  current={client.stamps} 
-                  total={client.maxStamps} 
-                />
-              </div>
-              
-              <div className="flex items-center justify-between">
-                {client.stamps >= client.maxStamps ? (
-                  <Badge className="bg-green-600 text-white px-3 py-1">
-                    <Gift className="w-3 h-3 mr-1" />
-                    Reward Ready
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="px-3 py-1">
-                    {client.maxStamps - client.stamps} stamps to go
-                  </Badge>
-                )}
-              </div>
-              
-              <div className="flex gap-2 flex-wrap">
-                <Button
-                  onClick={() => handleAddStamp(client.id, client.name)}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                  size="sm"
-                  disabled={client.stamps >= client.maxStamps}
-                >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Add Stamp
-                </Button>
-                
-                {client.stamps >= client.maxStamps && (
-                  <Button
-                    onClick={() => handleRedeemReward(client.id, client.name, client.stamps)}
-                    className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
-                    size="sm"
-                  >
-                    <Gift className="w-4 h-4 mr-1" />
-                    Redeem
-                  </Button>
-                )}
-                
-                <AppleWalletButton
-                  clientId={client.id}
-                  clientName={client.name}
-                  variant="outline"
-                  size="sm"
-                />
-              </div>
-              
-              <div className="text-xs text-gray-500 text-center">
-                Joined {new Date(client.created_at).toLocaleDateString()}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-      
-      {clients.length === 0 && (
-        <Card className="bg-white shadow-lg border-0">
-          <CardContent className="text-center py-12">
-            <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No clients yet</h3>
-            <p className="text-gray-600 mb-4">Start by registering your first client</p>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-              <Plus className="w-4 h-4 mr-2" />
-              Add First Client
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
-};
 
-export default ClientList;
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
+                        <div className="flex items-center gap-2 text-sm">
+                          <MapPin className="h-4 w-4 text-muted-foreground" />
+                          <span>{client.location_count} Locations</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                          <span>{client.staff_count} Staff</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                          <span>{client.customer_count} Customers</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                          <span>{client.admin_count} Admins</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 text-sm text-muted-foreground">
+                        {client.contact_email && (
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4" />
+                            <span>{client.contact_email}</span>
+                          </div>
+                        )}
+                        {client.contact_phone && (
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-4 w-4" />
+                            <span>{client.contact_phone}</span>
+                          </div>
+                        )}
+                        {(client.city || client.state || client.country) && (
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4" />
+                            <span>
+                              {[client.city, client.state, client.country].filter(Boolean).join(', ')}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4" />
+                          <span>Created {new Date(client.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit Client
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleToggleStatus(client.id, client.is_active)}
+                        >
+                          {client.is_active ? (
+                            <>
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Deactivate
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="h-4 w-4 mr-2" />
+                              Activate
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}

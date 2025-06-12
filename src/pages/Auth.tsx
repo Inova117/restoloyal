@@ -137,6 +137,18 @@ const Auth = () => {
         });
         navigate('/');
       }
+
+      // Check if user has client admin role
+      const { data: clientAdmin } = await (supabase as any)
+        .from('client_admins')
+        .select('client_id')
+        .eq('user_id', data.user.id)
+        .single()
+
+      if (clientAdmin) {
+        navigate('/')
+        return
+      }
     } catch (error: any) {
       toast({
         title: "Login failed",
@@ -176,21 +188,30 @@ const Auth = () => {
       if (error) throw error;
 
       if (data.user) {
-        // Create restaurant record
+        // Create client record instead of restaurant
         try {
-          const { error: restaurantError } = await supabase
-            .from('restaurants')
+          const { error: clientError } = await (supabase as any)
+            .from('clients')
             .insert({
-              user_id: data.user.id,
               name: restaurantName,
+              slug: restaurantName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'),
+              email: signupEmail,
               phone: phone,
+              business_type: 'single_restaurant',
+              status: 'active',
+              settings: {
+                stamps_required_for_reward: 10,
+                allow_cross_location_stamps: true,
+                auto_expire_stamps_days: 365,
+                customer_can_view_history: true
+              }
             });
 
-          if (restaurantError) {
-            console.error('Error creating restaurant:', restaurantError);
+          if (clientError) {
+            console.error('Error creating client:', clientError);
             toast({
-              title: "Restaurant creation failed",
-              description: "Account created but restaurant setup failed. Please contact support.",
+              title: "Client creation failed",
+              description: "Account created but business setup failed. Please contact support.",
               variant: "destructive",
             });
           }

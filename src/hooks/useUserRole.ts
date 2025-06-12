@@ -1,12 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
+import type { UserTier, Superadmin, ClientAdmin, LocationStaff, Customer } from '@/types/database'
 
-export type UserRole = 
-  | 'zerion_admin'          // ZerionCore platform admin - sees EVERYTHING
-  | 'galletti_hq'           // Galletti corporate - sees all Galletti restaurants
-  | 'restaurant_owner'      // Individual restaurant owner - sees their locations
-  | 'location_staff'        // Staff at specific location - simple POS interface
+export type UserRole = UserTier
 
 export interface UserPermissions {
   // Access levels
@@ -31,12 +28,10 @@ export interface UserPermissions {
 }
 
 export interface UserRoleData {
-  role: UserRole
-  permissions: UserPermissions
-  isLoading: boolean
-  clientName?: string
-  restaurantName?: string
-  isViewingAsAdmin?: boolean        // New flag to indicate super admin is viewing client dashboard
+  role: UserRole | null
+  roleData: Superadmin | ClientAdmin | LocationStaff | Customer | null
+  loading: boolean
+  error: string | null
 }
 
 // ============================================================================
@@ -106,359 +101,253 @@ function checkClientAdminRole(userEmail: string): { isClientAdmin: boolean, clie
   return { isClientAdmin: false }
 }
 
-export function useUserRole(): UserRoleData {
+export const useUserRole = (): UserRoleData => {
   const { user } = useAuth()
-  const [roleData, setRoleData] = useState<UserRoleData>({
-    role: 'location_staff',
-    permissions: {
-      canViewAllClients: false,
-      canViewAllRestaurants: false,
-      canViewOwnRestaurant: false,
-      canViewLocationOnly: false,
-      canManageClients: false,
-      canAddStamps: false,
-      canRedeemRewards: false,
-      canViewAnalytics: false,
-      canManageLocations: false,
-      canAccessCorporateData: false,
-      canManagePlatform: false
-    },
-    isLoading: true
-  })
+  const [role, setRole] = useState<UserRole | null>(null)
+  const [roleData, setRoleData] = useState<Superadmin | ClientAdmin | LocationStaff | Customer | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchUserRole = async () => {
+    const determineUserRole = async () => {
       if (!user) {
-        setRoleData(prev => ({ ...prev, isLoading: false }))
+        setRole(null)
+        setRoleData(null)
+        setLoading(false)
         return
       }
 
       try {
-        // Check session flags first
-        const isLocationContext = sessionStorage.getItem('galletti_hq_context') === 'true'
-        const tempRole = sessionStorage.getItem('temp_role') as UserRole
-        const tempLocationName = sessionStorage.getItem('temp_location_name')
-        const tempLocationId = sessionStorage.getItem('temp_location_id')
-        const forceClientAdmin = sessionStorage.getItem('force_client_admin') === 'true'
-        const forceLocationStaff = sessionStorage.getItem('force_location_staff') === 'true'
+        setLoading(true)
+        setError(null)
 
-        // Force location staff view if requested (return from client admin)
-        if (forceLocationStaff && user.user_metadata?.role === 'client_admin') {
-          setRoleData({
-            role: 'location_staff',
-            permissions: {
-              canViewAllClients: false,
-              canViewAllRestaurants: false,
-              canViewOwnRestaurant: false,
-              canViewLocationOnly: true,
-              canManageClients: true,
-              canAddStamps: true,
-              canRedeemRewards: true,
-              canViewAnalytics: false,
-              canManageLocations: false,
-              canAccessCorporateData: false,
-              canManagePlatform: false
-            },
-            isLoading: false,
-            restaurantName: user.user_metadata?.client_name || 'Staff Dashboard'
-          })
-          return
-        }
-
-        // Force client admin view if requested and user has permission
-        if (forceClientAdmin && user.user_metadata?.role === 'client_admin') {
-          setRoleData({
-            role: 'galletti_hq',
-            permissions: {
-              canViewAllClients: false,
-              canViewAllRestaurants: true,
-              canViewOwnRestaurant: false,
-              canViewLocationOnly: false,
-              canManageClients: false,
-              canAddStamps: false,
-              canRedeemRewards: false,
-              canViewAnalytics: true,
-              canManageLocations: true,
-              canAccessCorporateData: true,
-              canManagePlatform: false
-            },
-            isLoading: false,
-            clientName: user.user_metadata?.client_name || 'Client Dashboard'
-          })
-          return
-        }
-
-        // 🔒 SECURITY FIX: Use environment-based role detection
-        const isPlatformAdmin = checkPlatformAdminRole(user.email || '')
-        const clientAdminCheck = checkClientAdminRole(user.email || '')
-
-        // Handle location view context (client HQ viewing location)
-        if (isLocationContext && tempRole === 'location_staff' && (clientAdminCheck.isClientAdmin || isPlatformAdmin)) {
-          setRoleData({
-            role: 'location_staff',
-            permissions: {
-              canViewAllClients: false,
-              canViewAllRestaurants: false,
-              canViewOwnRestaurant: false,
-              canViewLocationOnly: true,
-              canManageClients: true,
-              canAddStamps: true,
-              canRedeemRewards: true,
-              canViewAnalytics: false,
-              canManageLocations: false,
-              canAccessCorporateData: false,
-              canManagePlatform: false,
-              locationId: tempLocationId || 'location_1'
-            },
-            isLoading: false,
-            restaurantName: tempLocationName || 'Location Dashboard',
-            isViewingAsAdmin: true
-          })
-          return
-        }
-
-        // Check admin context for platform admins
-        const isAdminContext = sessionStorage.getItem('zerion_admin_context') === 'true'
-        if (isAdminContext && tempRole && isPlatformAdmin) {
-          if (tempRole === 'galletti_hq') {
-            setRoleData({
-              role: 'galletti_hq',
-              permissions: {
-                canViewAllClients: false,
-                canViewAllRestaurants: true,
-                canViewOwnRestaurant: false,
-                canViewLocationOnly: false,
-                canManageClients: false,
-                canAddStamps: false,
-                canRedeemRewards: false,
-                canViewAnalytics: true,
-                canManageLocations: true,
-                canAccessCorporateData: true,
-                canManagePlatform: false,
-                clientId: 'galletti'
-              },
-              isLoading: false,
-              clientName: sessionStorage.getItem('temp_client_name') || 'Client Dashboard',
-              isViewingAsAdmin: true
-            })
-            return
-          }
-        }
-
-        // Platform admin role
-        if (isPlatformAdmin) {
-          setRoleData({
-            role: 'zerion_admin',
-            permissions: {
-              canViewAllClients: true,
-              canViewAllRestaurants: true,
-              canViewOwnRestaurant: true,
-              canViewLocationOnly: true,
-              canManageClients: true,
-              canAddStamps: true,
-              canRedeemRewards: true,
-              canViewAnalytics: true,
-              canManageLocations: true,
-              canAccessCorporateData: true,
-              canManagePlatform: true
-            },
-            isLoading: false
-          })
-          return
-        }
-
-        // Client admin role
-        if (clientAdminCheck.isClientAdmin) {
-          setRoleData({
-            role: 'galletti_hq',
-            permissions: {
-              canViewAllClients: false,
-              canViewAllRestaurants: true,
-              canViewOwnRestaurant: false,
-              canViewLocationOnly: false,
-              canManageClients: false,
-              canAddStamps: false,
-              canRedeemRewards: false,
-              canViewAnalytics: true,
-              canManageLocations: true,
-              canAccessCorporateData: true,
-              canManagePlatform: false,
-              clientId: clientAdminCheck.clientId
-            },
-            isLoading: false,
-            clientName: clientAdminCheck.clientName
-          })
-          return
-        }
-
-        // Check for restaurant ownership
-        const { data: restaurantData, error: restaurantError } = await supabase
-          .from('restaurants')
-          .select('id, name')
-          .eq('user_id', user.id)
-          .maybeSingle()
-
-        if (!restaurantError && restaurantData) {
-          setRoleData({
-            role: 'restaurant_owner',
-            permissions: {
-              canViewAllClients: false,
-              canViewAllRestaurants: false,
-              canViewOwnRestaurant: true,
-              canViewLocationOnly: false,
-              canManageClients: true,
-              canAddStamps: true,
-              canRedeemRewards: true,
-              canViewAnalytics: true,
-              canManageLocations: false,
-              canAccessCorporateData: false,
-              canManagePlatform: false,
-              restaurantId: restaurantData.id
-            },
-            isLoading: false,
-            restaurantName: restaurantData.name
-          })
-          return
-        }
-
-        // Check user_roles table for existing system
-        const { data: userRoleData, error: userRoleError } = await supabase
+        // Check user_roles table first for the most accurate role
+        const { data: userRoleData, error: userRoleError } = await (supabase as any)
           .from('user_roles')
-          .select('role')
+          .select('tier, tier_specific_id, is_active')
           .eq('user_id', user.id)
-          .maybeSingle()
+          .eq('is_active', true)
+          .single()
 
-        if (!userRoleError && userRoleData && userRoleData.role === 'restaurant_admin') {
-          setRoleData({
-            role: 'restaurant_owner',
-            permissions: {
-              canViewAllClients: false,
-              canViewAllRestaurants: false,
-              canViewOwnRestaurant: true,
-              canViewLocationOnly: false,
-              canManageClients: true,
-              canAddStamps: true,
-              canRedeemRewards: true,
-              canViewAnalytics: true,
-              canManageLocations: false,
-              canAccessCorporateData: false,
-              canManagePlatform: false
-            },
-            isLoading: false,
-            restaurantName: 'My Restaurant'
-          })
-          return
+        if (userRoleData && !userRoleError) {
+          const userTier = userRoleData.tier as UserTier
+          setRole(userTier)
+
+          // Fetch specific role data based on tier
+          switch (userTier) {
+            case 'superadmin':
+              const { data: superadminData } = await (supabase as any)
+                .from('superadmins')
+                .select('*')
+                .eq('user_id', user.id)
+                .eq('is_active', true)
+                .single()
+              setRoleData(superadminData as Superadmin)
+              break
+
+            case 'client_admin':
+              const { data: clientAdminData } = await (supabase as any)
+                .from('client_admins')
+                .select(`
+                  *,
+                  clients (
+                    id,
+                    name,
+                    slug,
+                    status
+                  )
+                `)
+                .eq('user_id', user.id)
+                .eq('is_active', true)
+                .single()
+              setRoleData(clientAdminData as ClientAdmin)
+              break
+
+            case 'location_staff':
+              const { data: locationStaffData } = await (supabase as any)
+                .from('location_staff')
+                .select(`
+                  *,
+                  locations (
+                    id,
+                    name,
+                    client_id,
+                    is_active
+                  ),
+                  clients (
+                    id,
+                    name,
+                    slug
+                  )
+                `)
+                .eq('user_id', user.id)
+                .eq('is_active', true)
+                .single()
+              setRoleData(locationStaffData as LocationStaff)
+              break
+
+            case 'customer':
+              const { data: customerData } = await (supabase as any)
+                .from('customers')
+                .select(`
+                  *,
+                  locations (
+                    id,
+                    name,
+                    client_id
+                  ),
+                  clients (
+                    id,
+                    name
+                  )
+                `)
+                .eq('user_id', user.id)
+                .eq('status', 'active')
+                .single()
+              setRoleData(customerData as Customer)
+              break
+
+            default:
+              setError('Unknown user tier')
+              break
+          }
+        } else {
+          // Fallback: Check individual tables if user_roles doesn't exist
+          await checkIndividualTables()
         }
-
-        // Check user metadata for client_admin fallback
-        if (user.user_metadata?.role === 'client_admin') {
-          setRoleData({
-            role: 'galletti_hq',
-            permissions: {
-              canViewAllClients: false,
-              canViewAllRestaurants: true,
-              canViewOwnRestaurant: false,
-              canViewLocationOnly: false,
-              canManageClients: false,
-              canAddStamps: false,
-              canRedeemRewards: false,
-              canViewAnalytics: true,
-              canManageLocations: true,
-              canAccessCorporateData: true,
-              canManagePlatform: false
-            },
-            isLoading: false,
-            clientName: user.user_metadata?.client_name || 'Client Dashboard'
-          })
-          return
-        }
-
-        // Default to location staff
-        setRoleData({
-          role: 'location_staff',
-          permissions: {
-            canViewAllClients: false,
-            canViewAllRestaurants: false,
-            canViewOwnRestaurant: false,
-            canViewLocationOnly: true,
-            canManageClients: true,
-            canAddStamps: true,
-            canRedeemRewards: true,
-            canViewAnalytics: false,
-            canManageLocations: false,
-            canAccessCorporateData: false,
-            canManagePlatform: false
-          },
-          isLoading: false,
-          restaurantName: 'Staff Dashboard'
-        })
-
-      } catch (error) {
-        // Secure fallback - never expose error details
-        setRoleData({
-          role: 'location_staff',
-          permissions: {
-            canViewAllClients: false,
-            canViewAllRestaurants: false,
-            canViewOwnRestaurant: false,
-            canViewLocationOnly: true,
-            canManageClients: true,
-            canAddStamps: true,
-            canRedeemRewards: true,
-            canViewAnalytics: false,
-            canManageLocations: false,
-            canAccessCorporateData: false,
-            canManagePlatform: false
-          },
-          isLoading: false,
-          restaurantName: 'Staff Dashboard'
-        })
+      } catch (err) {
+        console.error('Error determining user role:', err)
+        setError(err instanceof Error ? err.message : 'Unknown error')
+      } finally {
+        setLoading(false)
       }
     }
 
-    fetchUserRole()
+    const checkIndividualTables = async () => {
+      if (!user) return
+
+      // Check superadmins first (highest priority)
+      const { data: superadminData } = await (supabase as any)
+        .from('superadmins')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single()
+
+      if (superadminData) {
+        setRole('superadmin')
+        setRoleData(superadminData as Superadmin)
+        return
+      }
+
+      // Check client_admins
+      const { data: clientAdminData } = await (supabase as any)
+        .from('client_admins')
+        .select(`
+          *,
+          clients (
+            id,
+            name,
+            slug,
+            status
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single()
+
+      if (clientAdminData) {
+        setRole('client_admin')
+        setRoleData(clientAdminData as ClientAdmin)
+        return
+      }
+
+      // Check location_staff
+      const { data: locationStaffData } = await (supabase as any)
+        .from('location_staff')
+        .select(`
+          *,
+          locations (
+            id,
+            name,
+            client_id,
+            is_active
+          ),
+          clients (
+            id,
+            name,
+            slug
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single()
+
+      if (locationStaffData) {
+        setRole('location_staff')
+        setRoleData(locationStaffData as LocationStaff)
+        return
+      }
+
+      // Check customers (lowest priority)
+      const { data: customerData } = await (supabase as any)
+        .from('customers')
+        .select(`
+          *,
+          locations (
+            id,
+            name,
+            client_id
+          ),
+          clients (
+            id,
+            name
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .single()
+
+      if (customerData) {
+        setRole('customer')
+        setRoleData(customerData as Customer)
+        return
+      }
+
+      // No role found
+      setError('User has no assigned role in the system')
+    }
+
+    determineUserRole()
   }, [user])
 
-  return roleData
+  return { role, roleData, loading, error }
 }
 
 export function getRoleDisplayName(role: UserRole): string {
   const roleNames = {
-    zerion_admin: 'ZerionCore Admin',
-    galletti_hq: 'Galletti Corporate',
-    restaurant_owner: 'Restaurant Owner',
-    location_staff: 'Location Staff'
+    superadmin: 'Platform Administrator',
+    client_admin: 'Client Administrator',
+    location_staff: 'Location Staff',
+    customer: 'Customer'
   }
   
-  return roleNames[role] || 'Staff'
+  return roleNames[role] || 'User'
 }
 
 export function returnToPlatform(): void {
-  // Clear temporary role data and return to platform
-  sessionStorage.removeItem('zerion_admin_context')
-  sessionStorage.removeItem('temp_role')
-  sessionStorage.removeItem('viewing_client')
-  sessionStorage.removeItem('temp_client_name')
-  sessionStorage.removeItem('galletti_hq_context')
-  sessionStorage.removeItem('viewing_location')
-  sessionStorage.removeItem('temp_location_name')
-  sessionStorage.removeItem('temp_location_id')
-  sessionStorage.removeItem('temp_restaurant_id')
-  sessionStorage.removeItem('force_client_admin')
-  sessionStorage.removeItem('force_location_staff')
-  window.location.reload()
+  // For superadmin returning to platform view
+  window.location.href = '/';
 }
 
 export function returnToHQ(): void {
-  // Clear location context and return to client HQ
-  sessionStorage.removeItem('galletti_hq_context')
-  sessionStorage.removeItem('temp_role')
-  sessionStorage.removeItem('viewing_location')
-  sessionStorage.removeItem('temp_location_name')
-  sessionStorage.removeItem('temp_location_id')
-  sessionStorage.removeItem('temp_restaurant_id')
-  sessionStorage.removeItem('force_location_staff')
-  window.location.reload()
+  // For client admin returning to HQ view
+  window.location.href = '/';
+}
+
+export function returnToLocation(): void {
+  // For location staff returning to location view
+  window.location.href = '/';
 }
 
 export function switchToLocationView(locationData: {
@@ -476,21 +365,52 @@ export function switchToLocationView(locationData: {
   sessionStorage.setItem('temp_restaurant_id', locationData.restaurantId)
 }
 
-export function getAvailableTabs(role: UserRole): string[] {
+export function getAvailableTabs(role: UserRole | null): string[] {
   switch (role) {
-    case 'zerion_admin':
-      return ['platform', 'clients', 'analytics'] // Platform management
+    case 'superadmin':
+      return ['platform', 'clients', 'analytics', 'settings']
     
-    case 'galletti_hq':
-      return ['galletti_hq'] // Only corporate dashboard
-    
-    case 'restaurant_owner':
-      return ['dashboard', 'clients', 'analytics', 'referrals', 'geopush', 'locations'] // Full restaurant management
+    case 'client_admin':
+      return ['dashboard', 'locations', 'staff', 'customers', 'analytics', 'settings']
     
     case 'location_staff':
-      return ['pos'] // Simple POS interface
+      return ['dashboard', 'customers', 'stamps', 'rewards', 'analytics']
+    
+    case 'customer':
+      return ['loyalty', 'rewards', 'history']
     
     default:
-      return ['pos']
+      return []
+  }
+}
+
+export function canAccessFeature(role: UserRole | null, feature: string): boolean {
+  const rolePermissions = {
+    superadmin: ['all'],
+    client_admin: ['manage_locations', 'manage_staff', 'view_analytics', 'manage_customers', 'export_data'],
+    location_staff: ['manage_customers', 'add_stamps', 'redeem_rewards', 'view_basic_analytics'],
+    customer: ['view_loyalty', 'view_rewards', 'view_history']
+  }
+
+  if (!role) return false
+  
+  const permissions = rolePermissions[role]
+  return permissions.includes('all') || permissions.includes(feature)
+}
+
+export function getUserClientContext(roleData: any): { clientId?: string; locationId?: string } {
+  if (!roleData) return {}
+
+  switch (roleData.tier || roleData.role) {
+    case 'superadmin':
+      return {} // Superadmin has access to all clients
+    case 'client_admin':
+      return { clientId: roleData.client_id }
+    case 'location_staff':
+      return { clientId: roleData.client_id, locationId: roleData.location_id }
+    case 'customer':
+      return { clientId: roleData.client_id, locationId: roleData.location_id }
+    default:
+      return {}
   }
 } 

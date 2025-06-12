@@ -126,14 +126,15 @@ export default function MultiLocationDashboard() {
     const getCurrentRestaurant = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        const { data: restaurants } = await supabase
-          .from('restaurants')
-          .select('id')
+        // Get client admin data to find the client_id
+        const { data: clientAdmin } = await (supabase as any)
+          .from('client_admins')
+          .select('client_id')
           .eq('user_id', user.id)
           .single()
         
-        if (restaurants) {
-          setRestaurantId(restaurants.id)
+        if (clientAdmin) {
+          setRestaurantId(clientAdmin.client_id)
         }
       }
     }

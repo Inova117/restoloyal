@@ -1,3 +1,11 @@
+// ============================================================================
+// SUPABASE TYPES - UPDATED FOR FINALBACKENDIMPLEMENTATION
+// ============================================================================
+// This file contains type definitions that match our 4-tier hierarchy schema
+// Tables: superadmins, clients, client_admins, locations, location_staff, 
+//         customers, stamps, rewards, user_roles, hierarchy_audit_log
+// ============================================================================
+
 export type Json =
   | string
   | number
@@ -11,114 +19,367 @@ export type Database = {
     Tables: {
       clients: {
         Row: {
-          created_at: string
-          email: string | null
           id: string
           name: string
+          slug: string
+          email: string | null
           phone: string | null
-          qr_code: string
-          restaurant_id: string
-          stamps: number
+          business_type: string | null
+          status: string
+          settings: Json | null
+          created_at: string
           updated_at: string
         }
         Insert: {
-          created_at?: string
-          email?: string | null
           id?: string
           name: string
+          slug: string
+          email?: string | null
           phone?: string | null
-          qr_code: string
-          restaurant_id: string
-          stamps?: number
+          business_type?: string | null
+          status?: string
+          settings?: Json | null
+          created_at?: string
           updated_at?: string
         }
         Update: {
-          created_at?: string
-          email?: string | null
           id?: string
           name?: string
+          slug?: string
+          email?: string | null
           phone?: string | null
-          qr_code?: string
-          restaurant_id?: string
-          stamps?: number
+          business_type?: string | null
+          status?: string
+          settings?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      client_admins: {
+        Row: {
+          id: string
+          user_id: string
+          client_id: string
+          name: string
+          email: string
+          phone: string | null
+          permissions: Json | null
+          is_active: boolean
+          last_login: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          client_id: string
+          name: string
+          email: string
+          phone?: string | null
+          permissions?: Json | null
+          is_active?: boolean
+          last_login?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          client_id?: string
+          name?: string
+          email?: string
+          phone?: string | null
+          permissions?: Json | null
+          is_active?: boolean
+          last_login?: string | null
+          created_at?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "clients_restaurant_id_fkey"
-            columns: ["restaurant_id"]
+            foreignKeyName: "client_admins_client_id_fkey"
+            columns: ["client_id"]
             isOneToOne: false
-            referencedRelation: "restaurants"
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "client_admins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
         ]
       }
-      restaurants: {
+      customers: {
         Row: {
-          address: string | null
-          created_at: string
-          email: string | null
           id: string
+          client_id: string
+          location_id: string
           name: string
+          email: string | null
           phone: string | null
-          reward_description: string | null
-          stamps_required: number
+          qr_code: string
+          total_stamps: number
+          status: string
+          created_at: string
           updated_at: string
-          user_id: string
         }
         Insert: {
-          address?: string | null
-          created_at?: string
-          email?: string | null
           id?: string
+          client_id: string
+          location_id: string
           name: string
+          email?: string | null
           phone?: string | null
-          reward_description?: string | null
-          stamps_required?: number
+          qr_code: string
+          total_stamps?: number
+          status?: string
+          created_at?: string
           updated_at?: string
-          user_id: string
         }
         Update: {
-          address?: string | null
-          created_at?: string
-          email?: string | null
           id?: string
+          client_id?: string
+          location_id?: string
           name?: string
+          email?: string | null
           phone?: string | null
-          reward_description?: string | null
-          stamps_required?: number
+          qr_code?: string
+          total_stamps?: number
+          status?: string
+          created_at?: string
           updated_at?: string
-          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      hierarchy_audit_log: {
+        Row: {
+          id: string
+          attempted_action: string
+          user_id: string | null
+          attempted_tier: string | null
+          violation_type: string | null
+          error_message: string | null
+          user_agent: string | null
+          ip_address: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          attempted_action: string
+          user_id?: string | null
+          attempted_tier?: string | null
+          violation_type?: string | null
+          error_message?: string | null
+          user_agent?: string | null
+          ip_address?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          attempted_action?: string
+          user_id?: string | null
+          attempted_tier?: string | null
+          violation_type?: string | null
+          error_message?: string | null
+          user_agent?: string | null
+          ip_address?: string | null
+          created_at?: string
         }
         Relationships: []
       }
-      rewards: {
+      locations: {
         Row: {
-          client_id: string
-          created_at: string
-          description: string | null
           id: string
-          redeemed_by: string
-          restaurant_id: string
-          stamps_used: number
+          client_id: string
+          name: string
+          address: string
+          city: string
+          state: string | null
+          postal_code: string | null
+          country: string
+          phone: string | null
+          email: string | null
+          manager_name: string | null
+          is_active: boolean
+          settings: Json | null
+          created_at: string
+          updated_at: string
         }
         Insert: {
-          client_id: string
-          created_at?: string
-          description?: string | null
           id?: string
-          redeemed_by: string
-          restaurant_id: string
-          stamps_used: number
+          client_id: string
+          name: string
+          address: string
+          city: string
+          state?: string | null
+          postal_code?: string | null
+          country?: string
+          phone?: string | null
+          email?: string | null
+          manager_name?: string | null
+          is_active?: boolean
+          settings?: Json | null
+          created_at?: string
+          updated_at?: string
         }
         Update: {
-          client_id?: string
-          created_at?: string
-          description?: string | null
           id?: string
-          redeemed_by?: string
-          restaurant_id?: string
+          client_id?: string
+          name?: string
+          address?: string
+          city?: string
+          state?: string | null
+          postal_code?: string | null
+          country?: string
+          phone?: string | null
+          email?: string | null
+          manager_name?: string | null
+          is_active?: boolean
+          settings?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "locations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      location_staff: {
+        Row: {
+          id: string
+          user_id: string
+          location_id: string
+          client_id: string
+          name: string
+          email: string
+          phone: string | null
+          role: string
+          permissions: Json | null
+          is_active: boolean
+          last_login: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          location_id: string
+          client_id: string
+          name: string
+          email: string
+          phone?: string | null
+          role?: string
+          permissions?: Json | null
+          is_active?: boolean
+          last_login?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          location_id?: string
+          client_id?: string
+          name?: string
+          email?: string
+          phone?: string | null
+          role?: string
+          permissions?: Json | null
+          is_active?: boolean
+          last_login?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_staff_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_staff_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_staff_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      rewards: {
+        Row: {
+          id: string
+          customer_id: string
+          location_id: string
+          client_id: string
+          reward_type: string
+          description: string | null
+          stamps_used: number
+          value: number | null
+          status: string
+          redeemed_at: string | null
+          expires_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          customer_id: string
+          location_id: string
+          client_id: string
+          reward_type: string
+          description?: string | null
+          stamps_used: number
+          value?: number | null
+          status?: string
+          redeemed_at?: string | null
+          expires_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          customer_id?: string
+          location_id?: string
+          client_id?: string
+          reward_type?: string
+          description?: string | null
           stamps_used?: number
+          value?: number | null
+          status?: string
+          redeemed_at?: string | null
+          expires_at?: string | null
+          created_at?: string
         }
         Relationships: [
           {
@@ -129,35 +390,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "rewards_restaurant_id_fkey"
-            columns: ["restaurant_id"]
+            foreignKeyName: "rewards_customer_id_fkey"
+            columns: ["customer_id"]
             isOneToOne: false
-            referencedRelation: "restaurants"
+            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "rewards_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          }
         ]
       }
       stamps: {
         Row: {
-          added_by: string
-          client_id: string
-          created_at: string
           id: string
-          restaurant_id: string
+          customer_id: string
+          location_id: string
+          client_id: string
+          stamp_count: number
+          notes: string | null
+          created_at: string
         }
         Insert: {
-          added_by: string
-          client_id: string
-          created_at?: string
           id?: string
-          restaurant_id: string
+          customer_id: string
+          location_id: string
+          client_id: string
+          stamp_count?: number
+          notes?: string | null
+          created_at?: string
         }
         Update: {
-          added_by?: string
-          client_id?: string
-          created_at?: string
           id?: string
-          restaurant_id?: string
+          customer_id?: string
+          location_id?: string
+          client_id?: string
+          stamp_count?: number
+          notes?: string | null
+          created_at?: string
         }
         Relationships: [
           {
@@ -168,47 +442,115 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "stamps_restaurant_id_fkey"
-            columns: ["restaurant_id"]
+            foreignKeyName: "stamps_customer_id_fkey"
+            columns: ["customer_id"]
             isOneToOne: false
-            referencedRelation: "restaurants"
+            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "stamps_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      superadmins: {
+        Row: {
+          id: string
+          user_id: string
+          email: string
+          name: string
+          phone: string | null
+          is_active: boolean
+          last_login: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          email: string
+          name: string
+          phone?: string | null
+          is_active?: boolean
+          last_login?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          email?: string
+          name?: string
+          phone?: string | null
+          is_active?: boolean
+          last_login?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "superadmins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
         ]
       }
       user_roles: {
         Row: {
           id: string
-          role: Database["public"]["Enums"]["app_role"]
           user_id: string
+          tier: string
+          role_id: string
+          client_id: string | null
+          location_id: string | null
+          created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
-          role: Database["public"]["Enums"]["app_role"]
           user_id: string
+          tier: string
+          role_id: string
+          client_id?: string | null
+          location_id?: string | null
+          created_at?: string
+          updated_at?: string
         }
         Update: {
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+          tier?: string
+          role_id?: string
+          client_id?: string | null
+          location_id?: string | null
+          created_at?: string
+          updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      has_role: {
-        Args: {
-          _user_id: string
-          _role: Database["public"]["Enums"]["app_role"]
-        }
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
-      app_role: "restaurant_admin" | "client"
+      user_tier: "SUPERADMIN" | "CLIENT" | "LOCATION" | "CUSTOMER"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -216,29 +558,25 @@ export type Database = {
   }
 }
 
-type DefaultSchema = Database[Extract<keyof Database, "public">]
-
 export type Tables<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+  PublicTableNameOrOptions extends
+    | keyof (Database["public"]["Tables"] & Database["public"]["Views"])
     | { schema: keyof Database },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
-  }
-    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+        Database[PublicTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+  : PublicTableNameOrOptions extends keyof (Database["public"]["Tables"] &
+        Database["public"]["Views"])
+    ? (Database["public"]["Tables"] &
+        Database["public"]["Views"])[PublicTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -246,22 +584,20 @@ export type Tables<
     : never
 
 export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
+  PublicTableNameOrOptions extends
+    | keyof Database["public"]["Tables"]
     | { schema: keyof Database },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
-  }
-    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
+    ? Database["public"]["Tables"][PublicTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -269,22 +605,20 @@ export type TablesInsert<
     : never
 
 export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
+  PublicTableNameOrOptions extends
+    | keyof Database["public"]["Tables"]
     | { schema: keyof Database },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
-  }
-    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
+    ? Database["public"]["Tables"][PublicTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -292,39 +626,14 @@ export type TablesUpdate<
     : never
 
 export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
+  PublicEnumNameOrOptions extends
+    | keyof Database["public"]["Enums"]
     | { schema: keyof Database },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof Database
-  }
-    ? keyof Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+> = PublicEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : PublicEnumNameOrOptions extends keyof Database["public"]["Enums"]
+    ? Database["public"]["Enums"][PublicEnumNameOrOptions]
     : never
-
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof Database },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof Database
-  }
-    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
-
-export const Constants = {
-  public: {
-    Enums: {
-      app_role: ["restaurant_admin", "client"],
-    },
-  },
-} as const

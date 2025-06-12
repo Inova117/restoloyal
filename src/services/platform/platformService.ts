@@ -243,31 +243,21 @@ export class PlatformService extends BaseService {
 
     return this.executeQuery(
       async () => {
-        const params = new URLSearchParams({
-          endpoint: 'clients',
-          page: page.toString(),
-          limit: limit.toString()
-        });
-        
+        let query = supabase
+          .from('clients')
+          .select('*')
+          .order('created_at', { ascending: false });
+
         if (search) {
-          params.append('search', search);
+          query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%`);
         }
 
-        const response = await fetch(`${this.getApiUrl('platform-management')}?${params}`, {
-          headers: await this.getAuthHeaders()
-        });
-        
-        if (!response.ok) {
-          throw new Error(`API Error: ${response.status} ${response.statusText}`);
-        }
-        
-        const result = await response.json();
-        
-        if (!result.success) {
-          throw new Error(result.error || 'API call failed');
-        }
+        const { data, error } = await query
+          .range((page - 1) * limit, page * limit - 1);
 
-        return { data: result.data, error: null };
+        if (error) throw error;
+
+        return { data: data || [], error: null };
       },
       'Get Platform Clients'
     );

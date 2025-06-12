@@ -1,48 +1,39 @@
 // ============================================================================
-// PLATFORM SERVICES INDEX
-// Restaurant Loyalty Platform - Service Layer Exports
+// PLATFORM SERVICES INDEX - UPDATED FOR FINALBACKENDIMPLEMENTATION
+// ============================================================================
+// This file exports all platform services that work with our 4-tier hierarchy
+// schema: superadmins, clients, client_admins, locations, location_staff, 
+// customers, stamps, rewards, user_roles, hierarchy_audit_log
 // ============================================================================
 
+// Core platform services
 export { PlatformService } from './platformService';
 export { ClientService } from './clientService';
-export { AuthService, authService } from './authService';
-export { RestaurantService } from './restaurantService';
+export { AuthService } from './authService';
 
-// Export types
-export type { 
+// Service types
+export type {
   PlatformMetrics,
   PlatformSettings
 } from './platformService';
 
 export type {
+  ClientData,
   CreateClientData,
   UpdateClientData,
   ClientFilters,
-  ClientData,
   ClientMetrics
 } from './clientService';
 
 export type {
-  UserInfo,
-  UserPermissions
+  UserInfo
 } from './authService';
 
-export type {
-  RestaurantData,
-  LocationData,
-  StaffMemberData,
-  CreateRestaurantData,
-  UpdateRestaurantData,
-  CreateLocationData,
-  CreateStaffMemberData,
-  RestaurantFilters
-} from './restaurantService';
-
-// Create and export service instances
+// Service instances
 import { PlatformService } from './platformService';
 import { ClientService } from './clientService';
-import { RestaurantService } from './restaurantService';
+import { AuthService } from './authService';
 
 export const platformService = new PlatformService();
 export const clientService = new ClientService();
-export const restaurantService = new RestaurantService(); 
+export const authService = new AuthService(); 

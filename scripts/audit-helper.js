@@ -103,7 +103,7 @@ async function checkDatabase() {
   
   try {
     const { data, error } = await supabaseClient
-      .from('platform_clients')
+      .from('clients')
       .select('id')
       .limit(1);
     
@@ -121,6 +121,11 @@ async function checkDatabase() {
 // TABLE STRUCTURE CHECKS
 // ============================================================================
 
+const TABLES_TO_CHECK = [
+  'superadmins', 'clients', 'client_admins', 'locations', 'location_staff',
+  'customers', 'stamps', 'rewards', 'user_roles', 'hierarchy_audit_log'
+];
+
 async function checkTables() {
   console.log(chalk.yellow('📋 Checking Database Tables...\n'));
   
@@ -129,26 +134,15 @@ async function checkTables() {
     return;
   }
   
-  const requiredTables = [
-    'platform_clients',
-    'restaurants', 
-    'locations',
-    'customers',
-    'user_roles',
-    'platform_admin_users',
-    'stamps',
-    'rewards'
-  ];
-  
   try {
     const { data, error } = await supabaseAdmin
-      .rpc('check_table_exists', { table_names: requiredTables });
+      .rpc('check_table_exists', { table_names: TABLES_TO_CHECK });
     
     if (error) {
       // Fallback method if RPC doesn't exist
       console.log(chalk.yellow('⚠️  Using fallback table check method'));
       
-      for (const table of requiredTables) {
+      for (const table of TABLES_TO_CHECK) {
         try {
           const { error: tableError } = await supabaseAdmin
             .from(table)

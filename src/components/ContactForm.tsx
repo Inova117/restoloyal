@@ -38,10 +38,8 @@ export default function ContactForm({ isOpen, onClose }: ContactFormProps) {
     company: '',
     businessType: '',
     numberOfLocations: '',
-    currentSystem: '',
     message: '',
-    preferredContactTime: '',
-    urgency: 'medium'
+    preferredContactTime: ''
   });
 
   const businessTypes = [
@@ -66,12 +64,6 @@ export default function ContactForm({ isOpen, onClose }: ContactFormProps) {
     'Más de 50 ubicaciones'
   ];
 
-  const urgencyOptions = [
-    { value: 'low', label: 'No urgente', color: 'bg-green-500' },
-    { value: 'medium', label: 'Moderada', color: 'bg-yellow-500' },
-    { value: 'high', label: 'Urgente', color: 'bg-red-500' }
-  ];
-
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -81,10 +73,8 @@ export default function ContactForm({ isOpen, onClose }: ContactFormProps) {
     setIsSubmitting(true);
 
     try {
-      // Simular envío del formulario
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // En un caso real, aquí enviarías los datos a tu backend
       console.log('Form data:', formData);
       
       setIsSubmitted(true);
@@ -93,7 +83,6 @@ export default function ContactForm({ isOpen, onClose }: ContactFormProps) {
         description: "Te contactaremos dentro de las próximas 24 horas.",
       });
 
-      // Reset form after success
       setTimeout(() => {
         setIsSubmitted(false);
         setFormData({
@@ -103,10 +92,8 @@ export default function ContactForm({ isOpen, onClose }: ContactFormProps) {
           company: '',
           businessType: '',
           numberOfLocations: '',
-          currentSystem: '',
           message: '',
-          preferredContactTime: '',
-          urgency: 'medium'
+          preferredContactTime: ''
         });
         onClose();
       }, 3000);
@@ -197,7 +184,6 @@ export default function ContactForm({ isOpen, onClose }: ContactFormProps) {
                   </motion.div>
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Información Personal */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="name" className="text-white flex items-center gap-2">
@@ -263,7 +249,6 @@ export default function ContactForm({ isOpen, onClose }: ContactFormProps) {
                       </div>
                     </div>
 
-                    {/* Información del Negocio */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label className="text-white">Tipo de Negocio *</Label>
@@ -299,54 +284,21 @@ export default function ContactForm({ isOpen, onClose }: ContactFormProps) {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="currentSystem" className="text-white">Sistema Actual de Fidelización</Label>
-                      <Input
-                        id="currentSystem"
-                        value={formData.currentSystem}
-                        onChange={(e) => handleInputChange('currentSystem', e.target.value)}
-                        placeholder="¿Qué sistema usas actualmente? (opcional)"
-                        className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-400"
-                      />
-                    </div>
-
-                    {/* Preferencias de Contacto */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-white flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-emerald-400" />
-                          Mejor Horario para Contactarte
-                        </Label>
-                        <Select value={formData.preferredContactTime} onValueChange={(value) => handleInputChange('preferredContactTime', value)}>
-                          <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white">
-                            <SelectValue placeholder="Selecciona tu preferencia" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-slate-800 border-slate-700">
-                            <SelectItem value="morning" className="text-white hover:bg-slate-700">Mañana (9:00 - 12:00)</SelectItem>
-                            <SelectItem value="afternoon" className="text-white hover:bg-slate-700">Tarde (12:00 - 17:00)</SelectItem>
-                            <SelectItem value="evening" className="text-white hover:bg-slate-700">Noche (17:00 - 20:00)</SelectItem>
-                            <SelectItem value="flexible" className="text-white hover:bg-slate-700">Flexible</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label className="text-white">Urgencia del Proyecto</Label>
-                        <Select value={formData.urgency} onValueChange={(value) => handleInputChange('urgency', value)}>
-                          <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-slate-800 border-slate-700">
-                            {urgencyOptions.map((option) => (
-                              <SelectItem key={option.value} value={option.value} className="text-white hover:bg-slate-700">
-                                <div className="flex items-center gap-2">
-                                  <div className={`w-2 h-2 rounded-full ${option.color}`}></div>
-                                  {option.label}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      <Label className="text-white flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-emerald-400" />
+                        Mejor Horario para Contactarte
+                      </Label>
+                      <Select value={formData.preferredContactTime} onValueChange={(value) => handleInputChange('preferredContactTime', value)}>
+                        <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white">
+                          <SelectValue placeholder="Selecciona tu preferencia" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-slate-700">
+                          <SelectItem value="morning" className="text-white hover:bg-slate-700">Mañana (9:00 - 12:00)</SelectItem>
+                          <SelectItem value="afternoon" className="text-white hover:bg-slate-700">Tarde (12:00 - 17:00)</SelectItem>
+                          <SelectItem value="evening" className="text-white hover:bg-slate-700">Noche (17:00 - 20:00)</SelectItem>
+                          <SelectItem value="flexible" className="text-white hover:bg-slate-700">Flexible</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="space-y-2">
@@ -361,7 +313,6 @@ export default function ContactForm({ isOpen, onClose }: ContactFormProps) {
                       />
                     </div>
 
-                    {/* Submit Button */}
                     <Button
                       type="submit"
                       disabled={isSubmitting}

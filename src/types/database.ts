@@ -24,7 +24,7 @@ export type HierarchyAuditLog = Tables<'hierarchy_audit_log'>
 export type PlatformClient = Client // Alias for old platform_clients references
 
 // User tier enumeration matching database enum
-export type UserTier = 'SUPERADMIN' | 'CLIENT' | 'LOCATION' | 'CUSTOMER'
+export type UserTier = 'superadmin' | 'client_admin' | 'location_staff' | 'customer'
 
 // Application-specific interfaces
 export interface CustomerWithLocation extends Customer {
@@ -198,7 +198,32 @@ export interface StampFilters extends TableFilters {
 export interface RewardFilters extends TableFilters {
   customer_id?: string
   reward_type?: string
-  status?: 'pending' | 'redeemed' | 'expired'
+}
+
+// Enhanced client interface for restaurant management view
+// This maps backend Client data to frontend RestaurantData expectations
+export interface ClientDataForRestaurantView extends Client {
+  // Backend fields from clients table already included via Client:
+  // id, name, slug, email, phone, business_type, status, settings, created_at, updated_at
+  
+  // Extended fields for restaurant dashboard view
+  cuisine_type?: string // Derived from business_type or settings
+  description?: string // Derived from settings or name
+  website?: string // From settings or separate field
+  loyalty_program?: {
+    stamps_to_reward: number // From settings
+    reward_description: string // From settings
+    stamp_value: number // From settings
+    is_active: boolean // From status
+  }
+  
+  // Computed aggregated fields
+  total_customers?: number // Count from customers table
+  total_stamps_issued?: number // Count from stamps table
+  total_rewards_redeemed?: number // Count from rewards table
+  monthly_revenue?: number // Computed from transactions
+  locations_count?: number // Count from locations table
+  staff_count?: number // Count from location_staff table
 }
 
 // Export commonly used types for external consumption

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AIChat } from '@/components/ui/AIChat';
+import ContactForm from '@/components/ContactForm';
 import { Play, ArrowRight, Check, Star, Smartphone, Shield, Zap, Globe, Users, BarChart3, CreditCard, Sparkles, ChevronDown, X } from 'lucide-react';
 
 const Landing = () => {
@@ -22,6 +23,7 @@ const Landing = () => {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [windowWidth, setWindowWidth] = useState(1024); // Default to desktop
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isContactFormOpen, setIsContactFormOpen] = useState(false);
 
   const testimonials = [
     {
@@ -397,9 +399,10 @@ const Landing = () => {
           >
             <Button 
               size="lg" 
+              onClick={() => setIsContactFormOpen(true)}
               className="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-bold px-6 sm:px-8 md:px-10 py-3 sm:py-4 md:py-6 text-base sm:text-lg md:text-xl rounded-xl sm:rounded-2xl group shadow-2xl shadow-emerald-500/25 border border-emerald-400/50"
             >
-              Solicita una demo
+              Contacto
               <ArrowRight className="ml-2 sm:ml-3 h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 group-hover:translate-x-1 transition-transform" />
             </Button>
             <Button 
@@ -737,10 +740,11 @@ const Landing = () => {
             <p className="text-slate-300 mb-6">¿Listo para empezar?</p>
             <Button 
               size="lg" 
+              onClick={() => setIsContactFormOpen(true)}
               className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-bold px-8 py-4 text-lg rounded-xl group shadow-2xl shadow-emerald-500/25"
             >
-              Ver demo en vivo
-              <Play className="ml-2 h-5 w-5 group-hover:scale-110 transition-transform" />
+              Contacto
+              <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </Button>
           </motion.div>
         </div>
@@ -1396,8 +1400,11 @@ const Landing = () => {
                     <span className="text-5xl font-black">$149</span>
                     <span className="text-slate-400">/mes</span>
                   </div>
-                  <Button className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-bold">
-                    Solicitar demo
+                  <Button 
+                    onClick={() => setIsContactFormOpen(true)}
+                    className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-bold"
+                  >
+                    Contacto
                   </Button>
                 </div>
                 
@@ -1654,8 +1661,13 @@ const Landing = () => {
             </h2>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-12">
-              <Button size="lg" variant="secondary" className="bg-white text-emerald-600 hover:bg-slate-50 px-8 py-6 text-lg rounded-xl group">
-                Quiero una demo
+              <Button 
+                size="lg" 
+                variant="secondary" 
+                onClick={() => setIsContactFormOpen(true)}
+                className="bg-white text-emerald-600 hover:bg-slate-50 px-8 py-6 text-lg rounded-xl group"
+              >
+                Contacto
                 <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </Button>
               <Button size="lg" variant="ghost" className="text-white border-white hover:bg-white/10 px-8 py-6 text-lg rounded-xl">
@@ -1988,9 +2000,10 @@ const Landing = () => {
               <div className="mt-6 flex flex-col sm:flex-row gap-4 justify-center">
                 <Button 
                   size="lg" 
+                  onClick={() => setIsContactFormOpen(true)}
                   className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-bold px-8 py-4 text-lg rounded-xl group shadow-2xl shadow-emerald-500/25"
                 >
-                  Prueba la diferencia
+                  Contacto
                   <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </div>
@@ -2037,6 +2050,12 @@ const Landing = () => {
           </div>
         </div>
       </footer>
+
+      {/* Contact Form */}
+      <ContactForm 
+        isOpen={isContactFormOpen} 
+        onClose={() => setIsContactFormOpen(false)} 
+      />
     </div>
   );
 };

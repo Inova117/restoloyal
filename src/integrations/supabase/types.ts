@@ -550,7 +550,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      user_tier: "SUPERADMIN" | "CLIENT" | "LOCATION" | "CUSTOMER"
+      user_tier: "superadmin" | "client_admin" | "location_staff" | "customer"
     }
     CompositeTypes: {
       [_ in never]: never

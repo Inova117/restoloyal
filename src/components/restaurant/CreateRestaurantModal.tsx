@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Building, Star, DollarSign, Gift, X, AlertCircle } from 'lucide-react';
-import { useRestaurantManagement } from '@/hooks/platform/useRestaurantManagement';
+import { useClientManagement } from '@/hooks/platform/useClientManagement';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -134,7 +134,7 @@ export const CreateRestaurantModal: React.FC<CreateRestaurantModalProps> = ({
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { createRestaurant } = useRestaurantManagement({ autoLoad: false });
+  const { createClient: createRestaurant } = useClientManagement({ autoLoad: false });
   const { toast } = useToast();
 
   const handleInputChange = (field: keyof RestaurantFormData, value: string) => {

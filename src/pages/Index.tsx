@@ -30,7 +30,6 @@ const Index = () => {
   // State for different user contexts
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
   const [currentLocation, setCurrentLocation] = useState<Location | null>(null);
   const [currentClient, setCurrentClient] = useState<Client | null>(null);
 
@@ -77,17 +76,8 @@ const Index = () => {
   }, [user, role, roleData]);
 
   const loadSuperadminData = async () => {
-    // Load all clients for platform overview
-    const { data: clientsData, error: clientsError } = await (supabase as any)
-      .from('clients')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (clientsError) {
-      console.error('Error loading clients:', clientsError);
-    } else {
-      setClients(clientsData || []);
-    }
+    // Note: Clients data is managed by ZerionPlatformDashboard component
+    // No need to load clients data here
   };
 
   const loadClientAdminData = async () => {
@@ -453,7 +443,7 @@ const Index = () => {
                        <div key={customer.id} className="p-4 border rounded-lg">
                          <h3 className="font-semibold">{customer.name}</h3>
                          <p className="text-sm text-muted-foreground">
-                           Stamps: {customer.total_stamps} • Visits: {customer.total_visits}
+                           Stamps: {customer.total_stamps}
                          </p>
                          <div className="mt-2 flex space-x-2">
                            <Button size="sm" variant="outline">
@@ -497,7 +487,7 @@ const Index = () => {
                        <div key={customer.id} className="p-4 border rounded-lg">
                          <h3 className="font-semibold">{customer.name}</h3>
                          <p className="text-sm text-muted-foreground">
-                           Stamps: {customer.total_stamps} • Visits: {customer.total_visits}
+                           Stamps: {customer.total_stamps}
                          </p>
                          <div className="mt-2 flex space-x-2">
                            <Button size="sm" variant="outline">
@@ -545,13 +535,13 @@ const Index = () => {
                       {currentLocation?.name}
                     </h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Stamps: {(roleData as any)?.total_stamps || 0} / {currentClient?.settings?.stamps_required_for_reward || 10}
+                      Stamps: {(roleData as any)?.total_stamps || 0} / {(currentClient?.settings as any)?.stamps_required_for_reward || 10}
                     </p>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div 
                         className="bg-blue-600 h-2 rounded-full" 
                         style={{ 
-                          width: `${Math.min(100, ((roleData as any)?.total_stamps || 0) / (currentClient?.settings?.stamps_required_for_reward || 10) * 100)}%` 
+                          width: `${Math.min(100, ((roleData as any)?.total_stamps || 0) / ((currentClient?.settings as any)?.stamps_required_for_reward || 10) * 100)}%` 
                         }}
                       ></div>
                     </div>
@@ -562,7 +552,7 @@ const Index = () => {
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold">Available Rewards</h2>
                   <p className="text-muted-foreground">
-                    Earn {currentClient?.settings?.stamps_required_for_reward || 10} stamps to unlock rewards!
+                    Earn {(currentClient?.settings as any)?.stamps_required_for_reward || 10} stamps to unlock rewards!
                   </p>
                 </div>
               </TabsContent>

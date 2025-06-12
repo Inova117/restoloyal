@@ -31,14 +31,10 @@ interface PlatformMetrics {
 }
 
 interface ZerionPlatformDashboardProps {
-  showPlatformSettings?: boolean
-  setShowPlatformSettings?: (show: boolean) => void
+  // Remove unused props or make them optional for future use
 }
 
-export default function ZerionPlatformDashboard({ 
-  showPlatformSettings = false, 
-  setShowPlatformSettings 
-}: ZerionPlatformDashboardProps) {
+export default function ZerionPlatformDashboard() {
   const [metrics, setMetrics] = useState<PlatformMetrics | null>(null)
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
@@ -49,7 +45,7 @@ export default function ZerionPlatformDashboard({
     name: '',
     contactEmail: '',
     contactPhone: '',
-    businessType: 'restaurant_chain' as const,
+    businessType: 'restaurant_chain' as 'restaurant_chain' | 'single_restaurant' | 'franchise',
     address: '',
     city: '',
     state: '',
@@ -168,7 +164,7 @@ export default function ZerionPlatformDashboard({
         name: '',
         contactEmail: '',
         contactPhone: '',
-        businessType: 'restaurant_chain',
+        businessType: 'restaurant_chain' as 'restaurant_chain' | 'single_restaurant' | 'franchise',
         address: '',
         city: '',
         state: '',

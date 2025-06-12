@@ -11,6 +11,9 @@ export { PlatformService } from './platformService';
 export { ClientService } from './clientService';
 export { AuthService } from './authService';
 
+// DEPRECATED: Restaurant service (use ClientService instead)
+export { RestaurantService, restaurantService } from './restaurantService';
+
 // Service types
 export type {
   PlatformMetrics,
@@ -28,6 +31,14 @@ export type {
 export type {
   UserInfo
 } from './authService';
+
+// DEPRECATED: Restaurant types (use Client types instead)
+export type {
+  RestaurantData,
+  RestaurantFilters,
+  LocationData,
+  StaffMemberData
+} from './restaurantService';
 
 // Service instances
 import { PlatformService } from './platformService';

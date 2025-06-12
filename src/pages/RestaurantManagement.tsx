@@ -74,7 +74,7 @@ export const RestaurantManagement: React.FC = () => {
   };
 
   const handleModalSuccess = () => {
-    // Refresh data is handled automatically by the useRestaurantManagement hook
+    // Refresh data is handled automatically by the useClientManagement hook
     // Close the modal
     setModalState({
       createRestaurant: false,

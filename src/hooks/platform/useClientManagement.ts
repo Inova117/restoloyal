@@ -1,350 +1,551 @@
 // ============================================================================
-// USE CLIENT MANAGEMENT HOOK
-// Restaurant Loyalty Platform - Client Management State Hook
+// USE CLIENT MANAGEMENT HOOK - MODERN CLIENT/LOCATION HIERARCHY
+// Restaurant Loyalty Platform - Client Management Hook for 4-tier system
 // ============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
+import { clientService, type ClientData } from '@/services/platform';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { clientService, type ClientData, type CreateClientData, type UpdateClientData, type ClientFilters } from '@/services/platform/clientService';
-import { logInfo, logError } from '@/lib/logger';
+import type { Location, LocationStaff, ClientDataForRestaurantView } from '@/types/database';
 
 // ============================================================================
-// HOOK TYPES
+// DATA TRANSFORMATION FUNCTIONS
 // ============================================================================
 
-export interface UseClientManagementReturn {
-  // State
-  clients: ClientData[];
-  loading: boolean;
-  error: string | null;
-  selectedClient: ClientData | null;
+/**
+ * Transform backend Client data to RestaurantData format for the dashboard
+ */
+const transformClientToRestaurantData = (client: ClientData): ClientDataForRestaurantView => {
+  // Since ClientData doesn't have settings, we'll use defaults for now
+  // This can be enhanced when we have a proper client settings system
   
-  // Actions
-  loadClients: (filters?: ClientFilters) => Promise<void>;
-  createClient: (data: CreateClientData) => Promise<boolean>;
-  updateClient: (id: string, data: UpdateClientData) => Promise<boolean>;
-  deleteClient: (id: string, clientName: string) => Promise<boolean>;
-  selectClient: (client: ClientData | null) => void;
-  sendInvitation: (clientId: string, email: string, clientName: string) => Promise<boolean>;
-  
-  // Computed values
-  filteredClients: ClientData[];
-  clientCount: number;
-}
+  return {
+    // Map core client fields that exist in backend
+    id: client.id,
+    name: client.name,
+    slug: client.name.toLowerCase().replace(/[^a-z0-9]/g, '-'), // Generate slug from name
+    email: client.email,
+    phone: client.phone,
+    business_type: 'restaurant_chain', // Default for restaurant view
+    status: 'active', // Default status
+    settings: null, // JSON field in backend
+    created_at: client.created_at,
+    updated_at: client.updated_at,
+    
+    // Extended fields for restaurant dashboard
+    cuisine_type: 'american', // Default cuisine type
+    description: `${client.name} restaurant`,
+    website: '',
+    
+    // Loyalty program configuration with defaults
+    loyalty_program: {
+      stamps_to_reward: 10,
+      reward_description: 'Free item after 10 stamps',
+      stamp_value: 1.0,
+      is_active: client.subscription_status === 'active'
+    },
+    
+    // Computed metrics (will be populated by separate queries)
+    total_customers: client.customer_count || 0,
+    total_stamps_issued: 0,
+    total_rewards_redeemed: 0,
+    monthly_revenue: client.monthly_revenue || 0,
+    locations_count: client.location_count || 0,
+    staff_count: 0
+  };
+};
+
+/**
+ * Load aggregated metrics for a client
+ */
+const loadClientMetrics = async (clientId: string) => {
+  try {
+    // Load locations count
+    const { count: locationsCount } = await (supabase as any)
+      .from('locations')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('is_active', true);
+
+    // Load customers count
+    const { count: customersCount } = await (supabase as any)
+      .from('customers')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('is_active', true);
+
+    // Load staff count
+    const { count: staffCount } = await (supabase as any)
+      .from('location_staff')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('is_active', true);
+
+    // Load stamps count
+    const { count: stampsCount } = await (supabase as any)
+      .from('stamps')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId);
+
+    // Load rewards count
+    const { count: rewardsCount } = await (supabase as any)
+      .from('rewards')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId);
+
+    return {
+      locations_count: locationsCount || 0,
+      total_customers: customersCount || 0,
+      staff_count: staffCount || 0,
+      total_stamps_issued: stampsCount || 0,
+      total_rewards_redeemed: rewardsCount || 0,
+      monthly_revenue: 0 // TODO: Calculate from actual transaction data
+    };
+  } catch (error) {
+    console.error('Error loading client metrics:', error);
+    return {
+      locations_count: 0,
+      total_customers: 0,
+      staff_count: 0,
+      total_stamps_issued: 0,
+      total_rewards_redeemed: 0,
+      monthly_revenue: 0
+    };
+  }
+};
+
+// ============================================================================
+// HOOK TYPES FOR MODERN SCHEMA
+// ============================================================================
 
 export interface UseClientManagementOptions {
   autoLoad?: boolean;
-  initialFilters?: ClientFilters;
+  clientId?: string;
+  refreshInterval?: number;
+  showToasts?: boolean;
 }
 
-// ============================================================================
-// HOOK IMPLEMENTATION
-// ============================================================================
+export interface UseClientManagementReturn {
+  // Client data (modern approach)
+  clients: ClientDataForRestaurantView[];
+  selectedClient: ClientDataForRestaurantView | null;
+  loading: boolean;
+  error: string | null;
+  lastUpdated: Date | null;
+  
+  // Client operations
+  loadClients: (filters?: any) => Promise<void>;
+  selectClient: (client: ClientDataForRestaurantView | null) => void;
+  createClient: (data: any) => Promise<boolean>;
+  updateClient: (id: string, data: any) => Promise<boolean>;
+  deleteClient: (id: string) => Promise<boolean>;
+  
+  // Location operations
+  locations: Location[];
+  loadLocations: (clientId: string) => Promise<void>;
+  createLocation: (data: any) => Promise<boolean>;
+  
+  // Staff operations
+  staff: LocationStaff[];
+  loadStaff: (clientId: string, locationId?: string) => Promise<void>;
+  createStaffMember: (data: any) => Promise<boolean>;
+  
+  // Utility functions
+  refreshData: () => Promise<void>;
+  getClientById: (id: string) => ClientDataForRestaurantView | undefined;
+  clientCount: number;
+}
 
-export function useClientManagement(options: UseClientManagementOptions = {}): UseClientManagementReturn {
-  const { autoLoad = true, initialFilters } = options;
+export const useClientManagement = (
+  options: UseClientManagementOptions = {}
+): UseClientManagementReturn => {
+  const {
+    autoLoad = true,
+    clientId,
+    refreshInterval,
+    showToasts = true
+  } = options;
+
   const { toast } = useToast();
 
-  // State
-  const [clients, setClients] = useState<ClientData[]>([]);
+  // State management
+  const [clients, setClients] = useState<ClientDataForRestaurantView[]>([]);
+  const [selectedClient, setSelectedClient] = useState<ClientDataForRestaurantView | null>(null);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [staff, setStaff] = useState<LocationStaff[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedClient, setSelectedClient] = useState<ClientData | null>(null);
-  const [filters, setFilters] = useState<ClientFilters>(initialFilters || {});
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  // Load clients from the service
-  const loadClients = useCallback(async (newFilters?: ClientFilters) => {
+  // Load clients with proper transformation
+  const loadClients = useCallback(async (filters?: any) => {
     setLoading(true);
     setError(null);
 
     try {
-      logInfo('Loading clients', { filters: newFilters || filters }, 'useClientManagement');
-
-      const filtersToUse = newFilters || filters;
-      const response = await clientService.getClients(filtersToUse);
+      const response = await clientService.getClients(filters);
 
       if (response.success && response.data) {
-        setClients(response.data);
-        logInfo('Clients loaded successfully', { count: response.data.length }, 'useClientManagement');
-      } else {
-        const errorMessage = response.error?.message || 'Failed to load clients';
-        setError(errorMessage);
-        logError('Failed to load clients', { error: response.error }, 'useClientManagement');
+        // Transform client data to restaurant format
+        const transformedClients = await Promise.all(
+          response.data.map(async (client) => {
+            const restaurantData = transformClientToRestaurantData(client);
+            
+            // Load metrics for each client
+            const metrics = await loadClientMetrics(client.id);
+            
+            return {
+              ...restaurantData,
+              ...metrics
+            };
+          })
+        );
+
+        setClients(transformedClients);
+        setLastUpdated(new Date());
         
+        if (showToasts && filters?.search) {
+          toast({
+            title: 'Restaurants Loaded',
+            description: `Found ${transformedClients.length} restaurants.`
+          });
+        }
+      } else {
+        const errorMessage = response.error?.message || 'Failed to load restaurants';
+        setError(errorMessage);
+        
+        if (showToasts) {
+          toast({
+            title: 'Error Loading Restaurants',
+            description: errorMessage,
+            variant: 'destructive'
+          });
+        }
+      }
+    } catch (err) {
+      const errorMessage = 'An unexpected error occurred while loading restaurants';
+      setError(errorMessage);
+      
+      console.error('Restaurant Management Hook Error:', err);
+      
+      if (showToasts) {
         toast({
-          title: 'Error Loading Clients',
+          title: 'Error',
           description: errorMessage,
           variant: 'destructive'
         });
       }
-    } catch (err) {
-      const errorMessage = 'An unexpected error occurred while loading clients';
-      setError(errorMessage);
-      logError('Unexpected error loading clients', { error: err }, 'useClientManagement');
-      
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive'
-      });
     } finally {
       setLoading(false);
     }
-  }, [filters, toast]);
+  }, [clientId, showToasts, toast]);
+
+  // Load locations for a client
+  const loadLocations = useCallback(async (clientId: string) => {
+    try {
+      const { data, error } = await (supabase as any)
+        .from('locations')
+        .select('*')
+        .eq('client_id', clientId)
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      setLocations(data || []);
+    } catch (err) {
+      console.error('Error loading locations:', err);
+    }
+  }, []);
+
+  // Load staff for a client
+  const loadStaff = useCallback(async (clientId: string, locationId?: string) => {
+    try {
+      let query = (supabase as any)
+        .from('location_staff')
+        .select(`
+          *,
+          locations (
+            id,
+            name
+          )
+        `)
+        .eq('client_id', clientId)
+        .eq('is_active', true);
+
+      if (locationId) {
+        query = query.eq('location_id', locationId);
+      }
+
+      const { data, error } = await query.order('name');
+
+      if (error) throw error;
+      setStaff(data || []);
+    } catch (err) {
+      console.error('Error loading staff:', err);
+    }
+  }, []);
 
   // Create a new client
-  const createClient = useCallback(async (data: CreateClientData): Promise<boolean> => {
-    setLoading(true);
-    setError(null);
-
+  const createClient = useCallback(async (data: any): Promise<boolean> => {
     try {
-      logInfo('Creating new client', { name: data.name }, 'useClientManagement');
-
       const response = await clientService.createClient(data);
-
-      if (response.success && response.data) {
-        // Add the new client to the list
-        setClients(prev => [response.data!, ...prev]);
-        
-        logInfo('Client created successfully', { id: response.data.id, name: response.data.name }, 'useClientManagement');
-        
-        toast({
-          title: 'Client Created',
-          description: `${data.name} has been successfully added to the platform.`
-        });
-
-        return true;
-      } else {
-        const errorMessage = response.error?.message || 'Failed to create client';
-        setError(errorMessage);
-        logError('Failed to create client', { error: response.error }, 'useClientManagement');
-        
-        toast({
-          title: 'Error Creating Client',
-          description: errorMessage,
-          variant: 'destructive'
-        });
-
-        return false;
-      }
-    } catch (err) {
-      const errorMessage = 'An unexpected error occurred while creating the client';
-      setError(errorMessage);
-      logError('Unexpected error creating client', { error: err }, 'useClientManagement');
       
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive'
-      });
-
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
-
-  // Update an existing client
-  const updateClient = useCallback(async (id: string, data: UpdateClientData): Promise<boolean> => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      logInfo('Updating client', { id, updates: Object.keys(data) }, 'useClientManagement');
-
-      const response = await clientService.updateClient(id, data);
-
-      if (response.success && response.data) {
-        // Update the client in the list
-        setClients(prev => prev.map(client => 
-          client.id === id ? response.data! : client
-        ));
-
-        // Update selected client if it's the one being updated
-        if (selectedClient?.id === id) {
-          setSelectedClient(response.data);
+      if (response.success) {
+        await loadClients();
+        
+        if (showToasts) {
+          toast({
+            title: 'Restaurant Created',
+            description: `${data.name} has been created successfully.`
+          });
         }
         
-        logInfo('Client updated successfully', { id, name: response.data.name }, 'useClientManagement');
-        
-        toast({
-          title: 'Client Updated',
-          description: `${response.data.name} has been successfully updated.`
-        });
-
         return true;
       } else {
-        const errorMessage = response.error?.message || 'Failed to update client';
-        setError(errorMessage);
-        logError('Failed to update client', { error: response.error }, 'useClientManagement');
+        const errorMessage = response.error?.message || 'Failed to create restaurant';
         
-        toast({
-          title: 'Error Updating Client',
-          description: errorMessage,
-          variant: 'destructive'
-        });
-
+        if (showToasts) {
+          toast({
+            title: 'Error Creating Restaurant',
+            description: errorMessage,
+            variant: 'destructive'
+          });
+        }
+        
         return false;
       }
     } catch (err) {
-      const errorMessage = 'An unexpected error occurred while updating the client';
-      setError(errorMessage);
-      logError('Unexpected error updating client', { error: err }, 'useClientManagement');
+      console.error('Error creating restaurant:', err);
       
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive'
-      });
-
+      if (showToasts) {
+        toast({
+          title: 'Error',
+          description: 'An unexpected error occurred while creating the restaurant',
+          variant: 'destructive'
+        });
+      }
+      
       return false;
-    } finally {
-      setLoading(false);
     }
-  }, [selectedClient, toast]);
+  }, [loadClients, showToasts, toast]);
+
+  // Update a client
+  const updateClient = useCallback(async (id: string, data: any): Promise<boolean> => {
+    try {
+      const response = await clientService.updateClient(id, data);
+      
+      if (response.success) {
+        await loadClients();
+        
+        if (selectedClient && selectedClient.id === id && response.data) {
+          const transformedData = transformClientToRestaurantData(response.data);
+          setSelectedClient(transformedData);
+        }
+        
+        if (showToasts) {
+          toast({
+            title: 'Restaurant Updated',
+            description: 'Restaurant has been updated successfully.'
+          });
+        }
+        
+        return true;
+      } else {
+        const errorMessage = response.error?.message || 'Failed to update restaurant';
+        
+        if (showToasts) {
+          toast({
+            title: 'Error Updating Restaurant',
+            description: errorMessage,
+            variant: 'destructive'
+          });
+        }
+        
+        return false;
+      }
+    } catch (err) {
+      console.error('Error updating restaurant:', err);
+      
+      if (showToasts) {
+        toast({
+          title: 'Error',
+          description: 'An unexpected error occurred while updating the restaurant',
+          variant: 'destructive'
+        });
+      }
+      
+      return false;
+    }
+  }, [loadClients, selectedClient, showToasts, toast]);
 
   // Delete a client
-  const deleteClient = useCallback(async (id: string, clientName: string): Promise<boolean> => {
-    setLoading(true);
-    setError(null);
-
+  const deleteClient = useCallback(async (id: string): Promise<boolean> => {
     try {
-      logInfo('Deleting client', { id, name: clientName }, 'useClientManagement');
-
       const response = await clientService.deleteClient(id);
-
+      
       if (response.success) {
-        // Remove the client from the list
-        setClients(prev => prev.filter(client => client.id !== id));
-
-        // Clear selected client if it's the one being deleted
-        if (selectedClient?.id === id) {
+        await loadClients();
+        
+        if (selectedClient && selectedClient.id === id) {
           setSelectedClient(null);
         }
         
-        logInfo('Client deleted successfully', { id, name: clientName }, 'useClientManagement');
+        if (showToasts) {
+          toast({
+            title: 'Restaurant Deleted',
+            description: 'Restaurant has been deleted successfully.'
+          });
+        }
         
-        toast({
-          title: 'Client Deleted',
-          description: `${clientName} has been successfully removed from the platform.`
-        });
-
         return true;
       } else {
-        const errorMessage = response.error?.message || 'Failed to delete client';
-        setError(errorMessage);
-        logError('Failed to delete client', { error: response.error }, 'useClientManagement');
+        const errorMessage = response.error?.message || 'Failed to delete restaurant';
         
-        toast({
-          title: 'Error Deleting Client',
-          description: errorMessage,
-          variant: 'destructive'
-        });
-
+        if (showToasts) {
+          toast({
+            title: 'Error Deleting Restaurant',
+            description: errorMessage,
+            variant: 'destructive'
+          });
+        }
+        
         return false;
       }
     } catch (err) {
-      const errorMessage = 'An unexpected error occurred while deleting the client';
-      setError(errorMessage);
-      logError('Unexpected error deleting client', { error: err }, 'useClientManagement');
+      console.error('Error deleting restaurant:', err);
       
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive'
-      });
-
+      if (showToasts) {
+        toast({
+          title: 'Error',
+          description: 'An unexpected error occurred while deleting the restaurant',
+          variant: 'destructive'
+        });
+      }
+      
       return false;
-    } finally {
-      setLoading(false);
     }
-  }, [selectedClient, toast]);
+  }, [loadClients, selectedClient, showToasts, toast]);
 
-  // Select a client
-  const selectClient = useCallback((client: ClientData | null) => {
+  // Create location
+  const createLocation = useCallback(async (data: any): Promise<boolean> => {
+    try {
+      const { error } = await (supabase as any)
+        .from('locations')
+        .insert([data]);
+
+      if (error) throw error;
+
+      if (showToasts) {
+        toast({
+          title: 'Location Created',
+          description: `${data.name} has been created successfully.`
+        });
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Error creating location:', err);
+      
+      if (showToasts) {
+        toast({
+          title: 'Error',
+          description: 'Failed to create location',
+          variant: 'destructive'
+        });
+      }
+      
+      return false;
+    }
+  }, [showToasts, toast]);
+
+  // Create staff member
+  const createStaffMember = useCallback(async (data: any): Promise<boolean> => {
+    try {
+      const { error } = await (supabase as any)
+        .from('location_staff')
+        .insert([data]);
+
+      if (error) throw error;
+
+      if (showToasts) {
+        toast({
+          title: 'Staff Member Created',
+          description: `${data.name} has been added successfully.`
+        });
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Error creating staff member:', err);
+      
+      if (showToasts) {
+        toast({
+          title: 'Error',
+          description: 'Failed to create staff member',
+          variant: 'destructive'
+        });
+      }
+      
+      return false;
+    }
+  }, [showToasts, toast]);
+
+  // Select client
+  const selectClient = useCallback((client: ClientDataForRestaurantView | null) => {
     setSelectedClient(client);
-    logInfo('Client selected', { id: client?.id, name: client?.name }, 'useClientManagement');
   }, []);
 
-  // Send invitation email
-  const sendInvitation = useCallback(async (clientId: string, email: string, clientName: string): Promise<boolean> => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      logInfo('Sending client invitation', { clientId, email, clientName }, 'useClientManagement');
-
-      const response = await clientService.sendClientInvitation(clientId, email);
-
-      if (response.success) {
-        logInfo('Invitation sent successfully', { clientId, email }, 'useClientManagement');
-        
-        toast({
-          title: 'Invitation Sent',
-          description: `Invitation email has been sent to ${email} for ${clientName}.`
-        });
-
-        return true;
-      } else {
-        const errorMessage = response.error?.message || 'Failed to send invitation';
-        setError(errorMessage);
-        logError('Failed to send invitation', { error: response.error }, 'useClientManagement');
-        
-        toast({
-          title: 'Error Sending Invitation',
-          description: errorMessage,
-          variant: 'destructive'
-        });
-
-        return false;
-      }
-    } catch (err) {
-      const errorMessage = 'An unexpected error occurred while sending the invitation';
-      setError(errorMessage);
-      logError('Unexpected error sending invitation', { error: err }, 'useClientManagement');
-      
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive'
-      });
-
-      return false;
-    } finally {
-      setLoading(false);
+  // Refresh all data
+  const refreshData = useCallback(async () => {
+    await loadClients();
+    if (selectedClient) {
+      await loadLocations(selectedClient.id);
+      await loadStaff(selectedClient.id);
     }
-  }, [toast]);
+  }, [loadClients, selectedClient, loadLocations, loadStaff]);
 
-  // Computed values
-  const filteredClients = clients; // For now, filtering is done at the service level
-  const clientCount = clients.length;
+  // Get client by ID
+  const getClientById = useCallback((id: string) => {
+    return clients.find(c => c.id === id);
+  }, [clients]);
 
-  // Auto-load clients on mount
+  // Auto-load data on mount
   useEffect(() => {
     if (autoLoad) {
       loadClients();
     }
   }, [autoLoad, loadClients]);
 
+  // Set up refresh interval
+  useEffect(() => {
+    if (refreshInterval && refreshInterval > 0) {
+      const interval = setInterval(refreshData, refreshInterval);
+      return () => clearInterval(interval);
+    }
+  }, [refreshInterval, refreshData]);
+
   return {
-    // State
     clients,
+    selectedClient,
+    locations,
+    staff,
     loading,
     error,
-    selectedClient,
-    
-    // Actions
+    lastUpdated,
     loadClients,
+    selectClient,
     createClient,
     updateClient,
     deleteClient,
-    selectClient,
-    sendInvitation,
-    
-    // Computed values
-    filteredClients,
-    clientCount
+    loadLocations,
+    createLocation,
+    loadStaff,
+    createStaffMember,
+    refreshData,
+    getClientById,
+    clientCount: clients.length
   };
-}
+};
 
 export default useClientManagement; 

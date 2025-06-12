@@ -25,12 +25,12 @@ import {
   Globe,
   Star
 } from 'lucide-react';
-import { useRestaurantManagement } from '@/hooks/platform/useRestaurantManagement';
+import { useClientManagement } from '@/hooks/platform/useClientManagement';
 import { MetricsCard } from '@/components/platform/shared/MetricsCard';
 import { StatusBadge } from '@/components/platform/shared/StatusBadge';
 import { SectionErrorBoundary } from '@/components/ErrorBoundary';
 import { cn } from '@/lib/utils';
-import type { RestaurantData, LocationData, StaffMemberData } from '@/services/platform';
+import type { ClientDataForRestaurantView, Location, LocationStaff } from '@/types/database';
 
 // ============================================================================
 // COMPONENT TYPES
@@ -40,7 +40,7 @@ export interface RestaurantDashboardProps {
   className?: string;
   clientId?: string;
   onCreateRestaurant?: () => void;
-  onEditRestaurant?: (restaurant: RestaurantData) => void;
+  onEditRestaurant?: (restaurant: ClientDataForRestaurantView) => void;
   onCreateLocation?: (restaurantId: string) => void;
   onCreateStaffMember?: (restaurantId: string) => void;
 }
@@ -50,7 +50,7 @@ export interface RestaurantDashboardProps {
 // ============================================================================
 
 interface RestaurantCardProps {
-  restaurant: RestaurantData;
+  restaurant: ClientDataForRestaurantView;
   isSelected: boolean;
   onSelect: () => void;
   onEdit: () => void;
@@ -164,40 +164,42 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({
           </div>
 
           {/* Loyalty Program */}
-          <div className="bg-gradient-to-br from-sage-turquoise-50 to-sage-turquoise-100/50 p-4 rounded-xl border border-sage-turquoise-100">
-            <h4 className="font-editorial font-medium text-sm text-sage-turquoise-800 mb-3">Loyalty Program</h4>
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="space-y-1">
-                <span className="text-sage-turquoise-600 font-medium">Stamps Required:</span>
-                <div className="font-semibold text-sage-turquoise-800">{restaurant.loyalty_program.stamps_to_reward}</div>
-              </div>
-              <div className="space-y-1">
-                <span className="text-sage-turquoise-600 font-medium">Stamp Value:</span>
-                <div className="font-semibold text-sage-turquoise-800">${restaurant.loyalty_program.stamp_value}</div>
-              </div>
-              <div className="col-span-2 space-y-1">
-                <span className="text-sage-turquoise-600 font-medium">Reward:</span>
-                <div className="font-semibold text-sage-turquoise-800 leading-relaxed">{restaurant.loyalty_program.reward_description}</div>
+          {restaurant.loyalty_program && (
+            <div className="bg-gradient-to-br from-sage-turquoise-50 to-sage-turquoise-100/50 p-4 rounded-xl border border-sage-turquoise-100">
+              <h4 className="font-editorial font-medium text-sm text-sage-turquoise-800 mb-3">Loyalty Program</h4>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="space-y-1">
+                  <span className="text-sage-turquoise-600 font-medium">Stamps Required:</span>
+                  <div className="font-semibold text-sage-turquoise-800">{restaurant.loyalty_program.stamps_to_reward}</div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-sage-turquoise-600 font-medium">Stamp Value:</span>
+                  <div className="font-semibold text-sage-turquoise-800">${restaurant.loyalty_program.stamp_value}</div>
+                </div>
+                <div className="col-span-2 space-y-1">
+                  <span className="text-sage-turquoise-600 font-medium">Reward:</span>
+                  <div className="font-semibold text-sage-turquoise-800 leading-relaxed">{restaurant.loyalty_program.reward_description}</div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Metrics */}
           <div className="grid grid-cols-2 gap-3">
             <div className="text-center p-3 bg-sage-50 rounded-xl hover:bg-sage-100 transition-colors">
-              <div className="text-lg font-editorial font-bold text-sage-800">{restaurant.total_customers.toLocaleString()}</div>
+              <div className="text-lg font-editorial font-bold text-sage-800">{(restaurant.total_customers || 0).toLocaleString()}</div>
               <div className="text-xs text-sage-600 mt-1">Customers</div>
             </div>
             <div className="text-center p-3 bg-sage-50 rounded-xl hover:bg-sage-100 transition-colors">
-              <div className="text-lg font-editorial font-bold text-sage-800">${restaurant.monthly_revenue.toLocaleString()}</div>
+              <div className="text-lg font-editorial font-bold text-sage-800">${(restaurant.monthly_revenue || 0).toLocaleString()}</div>
               <div className="text-xs text-sage-600 mt-1">Monthly Revenue</div>
             </div>
             <div className="text-center p-3 bg-sage-50 rounded-xl hover:bg-sage-100 transition-colors">
-              <div className="text-lg font-editorial font-bold text-sage-800">{restaurant.locations_count}</div>
+              <div className="text-lg font-editorial font-bold text-sage-800">{restaurant.locations_count || 0}</div>
               <div className="text-xs text-sage-600 mt-1">Locations</div>
             </div>
             <div className="text-center p-3 bg-sage-50 rounded-xl hover:bg-sage-100 transition-colors">
-              <div className="text-lg font-editorial font-bold text-sage-800">{restaurant.staff_count}</div>
+              <div className="text-lg font-editorial font-bold text-sage-800">{restaurant.staff_count || 0}</div>
               <div className="text-xs text-sage-600 mt-1">Staff</div>
             </div>
           </div>
@@ -212,7 +214,7 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({
 // ============================================================================
 
 interface LocationItemProps {
-  location: LocationData;
+  location: Location;
 }
 
 const LocationItem: React.FC<LocationItemProps> = ({ location }) => {
@@ -247,7 +249,7 @@ const LocationItem: React.FC<LocationItemProps> = ({ location }) => {
 // ============================================================================
 
 interface StaffItemProps {
-  staff: StaffMemberData;
+  staff: LocationStaff;
 }
 
 const StaffItem: React.FC<StaffItemProps> = ({ staff }) => {
@@ -312,20 +314,29 @@ export const RestaurantDashboard: React.FC<RestaurantDashboardProps> = ({
   onCreateStaffMember
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedRestaurant, setSelectedRestaurant] = useState<RestaurantData | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
 
-  const { 
-    restaurants, 
-    locations, 
-    staff, 
-    loading, 
-    deleteRestaurant,
-    selectRestaurant 
-  } = useRestaurantManagement({
-    clientId,
+  const {
+    clients: restaurants,
+    selectedClient: selectedRestaurant,
+    locations,
+    staff,
+    loading,
+    error,
+    loadClients: loadRestaurants,
+    selectClient: selectRestaurant,
+    createClient: createRestaurant,
+    updateClient: updateRestaurant,
+    deleteClient: deleteRestaurant,
+    loadLocations,
+    createLocation,
+    loadStaff,
+    createStaffMember,
+    refreshData,
+    clientCount: restaurantCount
+  } = useClientManagement({
     autoLoad: true,
-    refreshInterval: 30000
+    showToasts: true
   });
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -336,7 +347,7 @@ export const RestaurantDashboard: React.FC<RestaurantDashboardProps> = ({
     // Refresh is handled automatically by the hook
   };
 
-  const handleDeleteRestaurant = async (restaurant: RestaurantData) => {
+  const handleDeleteRestaurant = async (restaurant: ClientDataForRestaurantView) => {
     if (confirm(`Are you sure you want to delete "${restaurant.name}"?`)) {
       await deleteRestaurant(restaurant.id);
     }
@@ -346,8 +357,6 @@ export const RestaurantDashboard: React.FC<RestaurantDashboardProps> = ({
     restaurant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     restaurant.cuisine_type?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const restaurantCount = restaurants.length;
 
   return (
     <SectionErrorBoundary name="Restaurant Dashboard">
@@ -361,8 +370,8 @@ export const RestaurantDashboard: React.FC<RestaurantDashboardProps> = ({
                 <Building className="w-10 h-10 text-sage-turquoise-600 icon-bounce" />
               </div>
               <div className="space-y-2">
-                <h1 className="text-4xl lg:text-5xl font-editorial font-bold text-balance">Restaurant Management</h1>
-                <p className="text-muted-foreground text-xl leading-relaxed">Manage restaurants, locations, and staff for your loyalty program</p>
+                <h1 className="text-4xl lg:text-5xl font-editorial font-bold text-balance">Business Management</h1>
+                <p className="text-muted-foreground text-xl leading-relaxed">Manage your business clients, locations, and staff for the loyalty program</p>
               </div>
             </div>
             <div className="dashboard-header-actions slide-in-right">
@@ -383,7 +392,7 @@ export const RestaurantDashboard: React.FC<RestaurantDashboardProps> = ({
                 className="space-x-2"
               >
                 <Plus className="h-4 w-4" />
-                <span>Add Restaurant</span>
+                <span>Add Business</span>
               </Button>
             </div>
           </div>
@@ -391,9 +400,9 @@ export const RestaurantDashboard: React.FC<RestaurantDashboardProps> = ({
           {/* Quick Metrics */}
           <div className="stats-grid stagger-fade-in">
             <MetricsCard
-              title="Total Restaurants"
+              title="Total Businesses"
               value={restaurantCount}
-              description="Active restaurants"
+              description="Active business clients"
               icon={Building}
               loading={loading}
               status="positive"
@@ -403,7 +412,7 @@ export const RestaurantDashboard: React.FC<RestaurantDashboardProps> = ({
             />
             <MetricsCard
               title="Total Locations"
-              value={restaurants.reduce((sum, r) => sum + r.locations_count, 0)}
+              value={restaurants.reduce((sum, r) => sum + (r.locations_count || 0), 0)}
               description="All locations"
               icon={MapPin}
               loading={loading}
@@ -414,7 +423,7 @@ export const RestaurantDashboard: React.FC<RestaurantDashboardProps> = ({
             />
             <MetricsCard
               title="Total Staff"
-              value={restaurants.reduce((sum, r) => sum + r.staff_count, 0)}
+              value={restaurants.reduce((sum, r) => sum + (r.staff_count || 0), 0)}
               description="All staff members"
               icon={Users}
               loading={loading}
@@ -425,8 +434,8 @@ export const RestaurantDashboard: React.FC<RestaurantDashboardProps> = ({
             />
             <MetricsCard
               title="Total Customers"
-              value={restaurants.reduce((sum, r) => sum + r.total_customers, 0)}
-              description="Across all restaurants"
+              value={restaurants.reduce((sum, r) => sum + (r.total_customers || 0), 0)}
+              description="Across all businesses"
               icon={BarChart3}
               loading={loading}
               status="positive"
@@ -447,13 +456,13 @@ export const RestaurantDashboard: React.FC<RestaurantDashboardProps> = ({
                       <div className="p-2 bg-sage-turquoise-100 rounded-xl">
                         <Building className="h-5 w-5 text-sage-turquoise-600" />
                       </div>
-                      Restaurants ({filteredRestaurants.length})
+                      Businesses ({filteredRestaurants.length})
                     </CardTitle>
                   </div>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-sage-400" />
                     <Input
-                      placeholder="Search restaurants..."
+                      placeholder="Search businesses..."
                       value={searchTerm}
                       onChange={handleSearchChange}
                       className="pl-10 border-sage-200 focus:border-sage-turquoise-300 focus:ring-sage-turquoise-200"
@@ -485,14 +494,14 @@ export const RestaurantDashboard: React.FC<RestaurantDashboardProps> = ({
                       <div className="p-6 bg-sage-100 rounded-2xl w-fit mx-auto mb-6">
                         <Building className="h-12 w-12 text-sage-400 mx-auto" />
                       </div>
-                      <h3 className="text-lg font-editorial font-medium text-sage-800 mb-2">No Restaurants Found</h3>
+                      <h3 className="text-lg font-editorial font-medium text-sage-800 mb-2">No Businesses Found</h3>
                       <p className="text-sage-600 mb-6 leading-relaxed max-w-sm mx-auto">
-                        {searchTerm ? 'No restaurants match your search criteria.' : 'Start by adding your first restaurant to begin.'}
+                        {searchTerm ? 'No businesses match your search criteria.' : 'Start by adding your first business client to begin.'}
                       </p>
                       {!searchTerm && (
                         <Button variant="sage" effect="glow" onClick={onCreateRestaurant} className="space-x-2">
                           <Plus className="h-4 w-4" />
-                          <span>Add Restaurant</span>
+                          <span>Add Business</span>
                         </Button>
                       )}
                     </div>

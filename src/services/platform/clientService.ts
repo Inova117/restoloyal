@@ -420,15 +420,26 @@ export class ClientService extends BaseService {
 
         // Fetch superadmin record to obtain its primary key id
         let superadminId: string | null = null;
-        if (currentUser) {
-          const { data: superadminRecord } = await supabase
-            .from('superadmins')
-            .select('id')
-            .eq('user_id', currentUser.id)
-            .eq('is_active', true)
-            .single();
-          superadminId = superadminRecord?.id || null;
+
+        if (!currentUser) {
+          throw new Error('You must be authenticated to create clients');
         }
+
+        const {
+          data: superadminRecord,
+          error: superadminError
+        } = await supabase
+          .from('superadmins')
+          .select('id')
+          .eq('user_id', currentUser.id)
+          .eq('is_active', true)
+          .single();
+
+        if (superadminError || !superadminRecord) {
+          throw new Error('Only active superadmins can create clients');
+        }
+
+        superadminId = superadminRecord.id;
 
         const clientData = {
           name: data.name,

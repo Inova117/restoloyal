@@ -26,17 +26,20 @@ export interface Location {
 }
 
 export interface LocationCreate {
-  restaurant_id: string
+  client_id?: string
+  restaurant_id?: string // optional legacy field
   name: string
   address: string
   city: string
   state: string
   zip_code?: string
   phone?: string
+  email?: string
   manager_name?: string
   manager_email?: string
   latitude?: number
   longitude?: number
+  settings?: any
 }
 
 export interface LocationUpdate {
@@ -203,7 +206,7 @@ export function useLocationManager(clientId?: string) {
 
       const insertData = {
         ...locationData,
-        client_id: targetClientId,
+        client_id: locationData.client_id ?? targetClientId,
         is_active: true
       }
 

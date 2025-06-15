@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Building, Star, DollarSign, Gift, X, AlertCircle } from 'lucide-react';
-import { useClientManagement } from '@/hooks/platform/useClientManagement';
+import { useLocationManager } from '@/hooks/useLocationManager';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -134,7 +134,7 @@ export const CreateRestaurantModal: React.FC<CreateRestaurantModalProps> = ({
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { createClient: createRestaurant } = useClientManagement({ autoLoad: false });
+  const { createLocation } = useLocationManager(clientId);
   const { toast } = useToast();
 
   const handleInputChange = (field: keyof RestaurantFormData, value: string) => {
@@ -177,21 +177,25 @@ export const CreateRestaurantModal: React.FC<CreateRestaurantModalProps> = ({
     setErrors([]);
 
     try {
-      const success = await createRestaurant({
-        ...formData,
+      const success = await createLocation({
         client_id: clientId,
-        // Clean up optional fields
-        description: formData.description.trim() || undefined,
+        name: formData.name,
+        address: formData.description.slice(0, 50) || 'Address TBD',
+        city: 'TBD',
+        state: 'TBD',
         phone: formData.phone.trim() || undefined,
         email: formData.email.trim() || undefined,
-        contact_email: formData.email.trim() || undefined,
-        contact_phone: formData.phone.trim() || undefined,
-        website: formData.website.trim() || undefined
+        settings: {
+          cuisine_type: formData.cuisine_type,
+          description: formData.description.trim() || undefined,
+          website: formData.website.trim() || undefined,
+          loyalty_program: formData.loyalty_program
+        }
       });
 
       if (success) {
         toast({
-          title: 'Restaurant Created',
+          title: 'Location Created',
           description: `${formData.name} has been created successfully.`
         });
 

@@ -35,6 +35,7 @@ import {
   Crown,
   Sparkles
 } from 'lucide-react'
+import { ClientService } from '@/services/platform/clientService'
 
 interface PlatformMetrics {
   totalClients: number
@@ -148,32 +149,18 @@ export default function ZerionPlatformDashboard() {
 
     setLoading(true)
     try {
-      const { data, error } = await supabase.functions.invoke('create-client', {
-        body: {
-          name: newClient.name,
-          slug: newClient.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'),
-          email: newClient.contactEmail,
-          phone: newClient.contactPhone,
-          address: newClient.address,
-          city: newClient.city,
-          state: newClient.state,
-          country: newClient.country,
-          business_type: newClient.businessType,
-          settings: {
-            stamps_required_for_reward: 10,
-            allow_cross_location_stamps: true,
-            auto_expire_stamps_days: 365,
-            customer_can_view_history: true
-          }
-        }
+      const clientService = new ClientService()
+      const { error } = await clientService.createClient({
+        name: newClient.name,
+        email: newClient.contactEmail,
+        phone: newClient.contactPhone || undefined,
+        subscription_plan: 'trial',
+        contact_email: newClient.contactEmail,
+        contact_phone: newClient.contactPhone || undefined
       })
 
       if (error) {
         throw new Error(error.message || 'Failed to create client')
-      }
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to create client')
       }
 
       toast({

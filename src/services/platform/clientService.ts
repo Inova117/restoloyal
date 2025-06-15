@@ -418,6 +418,18 @@ export class ClientService extends BaseService {
       async () => {
         const currentUser = await this.getCurrentUser();
 
+        // Fetch superadmin record to obtain its primary key id
+        let superadminId: string | null = null;
+        if (currentUser) {
+          const { data: superadminRecord } = await supabase
+            .from('superadmins')
+            .select('id')
+            .eq('user_id', currentUser.id)
+            .eq('is_active', true)
+            .single();
+          superadminId = superadminRecord?.id || null;
+        }
+
         const clientData = {
           name: data.name,
           slug: data.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'),
@@ -425,7 +437,7 @@ export class ClientService extends BaseService {
           phone: data.contact_phone || null,
           business_type: 'restaurant_chain',
           status: 'active',
-          created_by_superadmin_id: currentUser?.id || null
+          created_by_superadmin_id: superadminId
         };
 
         const result = await supabase

@@ -32,7 +32,7 @@ export interface LocationCreate {
   address: string
   city: string
   state: string
-  postal_code?: string // Match actual DB schema
+  zip_code?: string
   phone?: string
   email?: string
   manager_name?: string
@@ -46,7 +46,7 @@ export interface LocationUpdate {
   address?: string
   city?: string
   state?: string
-  postal_code?: string // Match actual DB schema
+  zip_code?: string // Match actual DB schema
   phone?: string
   manager_name?: string
   email?: string // Match actual DB schema
@@ -181,7 +181,7 @@ export function useLocationManager(clientId?: string) {
       // Now fetch locations - superadmins can see all, client admins see their client's
       let query = supabase
         .from('locations')
-        .select('id,name,address,city,state,postal_code,phone,email,manager_name,is_active,created_at,updated_at,client_id')
+        .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: false })
 
@@ -204,7 +204,7 @@ export function useLocationManager(clientId?: string) {
         address: loc.address,
         city: loc.city,
         state: loc.state || '',
-        zip_code: loc.postal_code,
+        zip_code: (loc as any).zip_code ?? (loc as any).postal_code,
         phone: loc.phone,
         manager_name: loc.manager_name,
         manager_email: loc.email,
@@ -319,7 +319,7 @@ export function useLocationManager(clientId?: string) {
         address: locationData.address,
         city: locationData.city,
         state: locationData.state,
-        postal_code: locationData.postal_code || null,
+        zip_code: locationData.zip_code || null,
         country: 'US',
         phone: locationData.phone || null,
         email: locationData.email || null,

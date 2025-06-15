@@ -33,9 +33,26 @@ import {
   CheckCircle,
   AlertCircle,
   Crown,
-  Sparkles
+  Sparkles,
+  QrCode,
+  Gift,
+  Scan,
+  LogOut,
+  Store,
+  ArrowLeft
 } from 'lucide-react'
 import { ClientService } from '@/services/platform/clientService'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
+import {
+  DialogFooter
+} from '@/components/ui/dialog'
+import { useNavigate } from 'react-router-dom'
 
 interface PlatformMetrics {
   totalClients: number
@@ -49,12 +66,17 @@ interface ZerionPlatformDashboardProps {
 }
 
 export default function ZerionPlatformDashboard() {
+  const navigate = useNavigate()
   const [metrics, setMetrics] = useState<PlatformMetrics | null>(null)
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
   const [refreshing, setRefreshing] = useState(false)
   const { toast } = useToast()
+
+  // Dialog state for view / edit actions
+  const [dialogMode, setDialogMode] = useState<'view' | 'edit' | null>(null)
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null)
 
   const [newClient, setNewClient] = useState({
     name: '',
@@ -569,13 +591,38 @@ export default function ZerionPlatformDashboard() {
                         </p>
                       </div>
                       <div className="flex space-x-2">
-                        <Button size="sm" variant="outline" className="hover:bg-blue-50">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="hover:bg-blue-50"
+                          onClick={() => {
+                            setSelectedClient(client)
+                            setDialogMode('view')
+                          }}
+                        >
                           <Eye className="h-4 w-4 mr-2" />
                           View
                         </Button>
-                        <Button size="sm" variant="outline" className="hover:bg-gray-50">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="hover:bg-gray-50"
+                          onClick={() => {
+                            setSelectedClient(client)
+                            setDialogMode('edit')
+                          }}
+                        >
                           <Edit className="h-4 w-4 mr-2" />
                           Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="default"
+                          className="hover:bg-blue-600 text-white"
+                          onClick={() => navigate(`/restaurants?clientId=${client.id}`)}
+                        >
+                          <Store className="h-4 w-4 mr-2" />
+                          Dashboard
                         </Button>
                       </div>
                     </div>
@@ -759,6 +806,138 @@ export default function ZerionPlatformDashboard() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* ──────────────────────────────────────────────────────────
+          CLIENT VIEW / EDIT DIALOG
+      ────────────────────────────────────────────────────────── */}
+      <Dialog
+        open={dialogMode !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDialogMode(null)
+            setSelectedClient(null)
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          {dialogMode === 'view' && selectedClient && (
+            <div className="space-y-4">
+              <DialogHeader>
+                <DialogTitle>{selectedClient.name}</DialogTitle>
+                <DialogDescription>
+                  {selectedClient.business_type?.replace('_', ' ') || 'N/A'}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-2 text-sm">
+                <p><span className="font-medium">Email:</span> {selectedClient.email || '—'}</p>
+                <p><span className="font-medium">Phone:</span> {selectedClient.phone || '—'}</p>
+                <p><span className="font-medium">Status:</span> {selectedClient.status}</p>
+                <p><span className="font-medium">Created:</span> {new Date(selectedClient.created_at).toLocaleString()}</p>
+              </div>
+            </div>
+          )}
+
+          {dialogMode === 'edit' && selectedClient && (
+            <EditClientForm
+              client={selectedClient}
+              onSuccess={async (updated) => {
+                // Refresh list with updated client
+                await loadClients()
+                setSelectedClient(updated)
+                setDialogMode('view')
+              }}
+              onCancel={() => setDialogMode(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+/* ──────────────────────────────────────────────────────────
+   EditClientForm – lightweight inline component
+────────────────────────────────────────────────────────── */
+
+interface EditClientFormProps {
+  client: Client
+  onSuccess: (updated: Client) => void
+  onCancel: () => void
+}
+
+function EditClientForm({ client, onSuccess, onCancel }: EditClientFormProps) {
+  const [form, setForm] = useState({
+    name: client.name || '',
+    email: client.email || '',
+    phone: client.phone || ''
+  })
+  const [saving, setSaving] = useState(false)
+  const { toast } = useToast()
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const service = new ClientService()
+      const { data, error } = await service.updateClient(client.id, {
+        name: form.name,
+        email: form.email,
+        phone: form.phone
+      })
+
+      if (error || !data) {
+        throw new Error(error?.message || 'Failed to update client')
+      }
+
+      toast({ title: 'Client updated', description: `${data.name} updated successfully.` })
+      onSuccess({ ...client, ...data })
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <DialogHeader>
+        <DialogTitle>Edit Client</DialogTitle>
+        <DialogDescription>Update basic client information</DialogDescription>
+      </DialogHeader>
+
+      <div className="space-y-2">
+        <Label htmlFor="client-name">Name</Label>
+        <Input
+          id="client-name"
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          placeholder="Business name"
+        />
+        <Label htmlFor="client-email">Email</Label>
+        <Input
+          id="client-email"
+          type="email"
+          value={form.email || ''}
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
+          placeholder="contact@business.com"
+        />
+        <Label htmlFor="client-phone">Phone</Label>
+        <Input
+          id="client-phone"
+          value={form.phone || ''}
+          onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          placeholder="+1 (555) 123-4567"
+        />
+      </div>
+
+      <DialogFooter className="pt-4">
+        <Button variant="outline" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving…' : 'Save'}
+        </Button>
+      </DialogFooter>
     </div>
   )
 } 

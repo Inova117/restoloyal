@@ -6,7 +6,8 @@
 import React, { useState } from 'react';
 import { RestaurantDashboard, CreateRestaurantModal } from '@/components/restaurant';
 import { PageErrorBoundary } from '@/components/ErrorBoundary';
-import type { RestaurantData } from '@/services/platform';
+import type { ClientDataForRestaurantView } from '@/types/database';
+import { useSearchParams } from 'react-router-dom';
 
 // ============================================================================
 // MODAL STATE TYPE
@@ -14,7 +15,7 @@ import type { RestaurantData } from '@/services/platform';
 
 interface ModalState {
   createRestaurant: boolean;
-  editRestaurant: { isOpen: boolean; restaurant: RestaurantData | null };
+  editRestaurant: { isOpen: boolean; restaurant: ClientDataForRestaurantView | null };
   createLocation: { isOpen: boolean; restaurantId: string | null };
   createStaff: { isOpen: boolean; restaurantId: string | null };
 }
@@ -31,9 +32,17 @@ export const RestaurantManagement: React.FC = () => {
     createStaff: { isOpen: false, restaurantId: null }
   });
 
-  // For demo purposes, using a mock client ID
-  // In a real app, this would come from authentication context or route params
-  const clientId = 'demo-client-id';
+  // Obtain clientId from URL (e.g., /restaurants?clientId=xxx)
+  const [searchParams] = useSearchParams();
+  const clientId = searchParams.get('clientId');
+
+  if (!clientId) {
+    return (
+      <div className="p-8 text-center text-muted-foreground">
+        No client selected.
+      </div>
+    );
+  }
 
   // Modal handlers
   const handleCreateRestaurant = () => {
@@ -43,7 +52,7 @@ export const RestaurantManagement: React.FC = () => {
     }));
   };
 
-  const handleEditRestaurant = (restaurant: RestaurantData) => {
+  const handleEditRestaurant = (restaurant: ClientDataForRestaurantView) => {
     setModalState(prev => ({
       ...prev,
       editRestaurant: { isOpen: true, restaurant }

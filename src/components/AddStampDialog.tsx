@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/integrations/supabase/client'
 import { useUserRole, getUserClientContext } from '@/hooks/useUserRole'
 import { Plus, Star, User, Calendar, MapPin } from 'lucide-react'
-import type { Customer, Stamp } from '@/types/database'
+import type { Customer } from '@/types/database'
 
 interface AddStampDialogProps {
   onStampAdded: () => void
@@ -119,7 +119,7 @@ export default function AddStampDialog({
         created_at: new Date().toISOString()
       }
 
-      const { data: newStamp, error: stampError } = await (supabase as any)
+      const { error: stampError } = await (supabase as any)
         .from('stamps')
         .insert([stampRecord])
         .select('id, stamp_count, created_at')

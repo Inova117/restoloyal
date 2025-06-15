@@ -5,6 +5,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { PageErrorBoundary } from '@/components/ErrorBoundary';
+import { EnvironmentDebugger } from '@/components/EnvironmentDebugger';
 import { initializeSecurity } from '@/lib/security';
 import { logInfo, logError } from '@/lib/logger';
 
@@ -58,6 +59,7 @@ function App() {
 
   return (
     <PageErrorBoundary name="Application Root">
+      <EnvironmentDebugger />
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <Router>

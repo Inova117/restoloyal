@@ -19,7 +19,6 @@ import {
   Edit,
   Trash2,
   BarChart3,
-  Settings,
   Phone,
   Mail,
   Globe,
@@ -307,7 +306,6 @@ const StaffItem: React.FC<StaffItemProps> = ({ staff }) => {
 
 export const RestaurantDashboard: React.FC<RestaurantDashboardProps> = ({
   className,
-  clientId,
   onCreateRestaurant,
   onEditRestaurant,
   onCreateLocation,
@@ -322,17 +320,8 @@ export const RestaurantDashboard: React.FC<RestaurantDashboardProps> = ({
     locations,
     staff,
     loading,
-    error,
-    loadClients: loadRestaurants,
     selectClient: selectRestaurant,
-    createClient: createRestaurant,
-    updateClient: updateRestaurant,
     deleteClient: deleteRestaurant,
-    loadLocations,
-    createLocation,
-    loadStaff,
-    createStaffMember,
-    refreshData,
     clientCount: restaurantCount
   } = useClientManagement({
     autoLoad: true,

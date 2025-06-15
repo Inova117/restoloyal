@@ -5,9 +5,16 @@
 // Enforces hierarchy: location_staff → customer
 // ============================================================================
 
-/// <reference path="./deno.d.ts" />
+// TypeScript declaration for Deno global
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+};
 
+// @ts-ignore - Deno runtime imports
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+// @ts-ignore - Deno runtime imports  
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 interface CreateCustomerRequest {

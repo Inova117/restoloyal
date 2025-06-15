@@ -9,8 +9,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "verify-env": "node scripts/verify-env.js",
-    "prebuild": "node scripts/verify-env.js"
+    "verify-env": "node scripts/verify-env.cjs",
+    "prebuild": "node scripts/verify-env.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

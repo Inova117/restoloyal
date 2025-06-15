@@ -77,7 +77,7 @@ AND tablename IN (
 SELECT * FROM test_rls_policies();
 
 -- Test hierarchy functions (use your actual email and name)
-SELECT * FROM bootstrap_superadmin('admin@yourcompany.com', 'Super Admin');
+SELECT * FROM bootstrap_superadmin('martin@zerionstudio.com', 'Super Admin');
 ```
 
 ### Step 3: Bootstrap First Superadmin
@@ -85,9 +85,9 @@ SELECT * FROM bootstrap_superadmin('admin@yourcompany.com', 'Super Admin');
 ```sql
 -- Create the first superadmin (replace with your details)
 SELECT bootstrap_superadmin(
-  'admin@yourcompany.com',
-  'Your Full Name',
-  '+1234567890'
+  'amartin@mzerionstudio.com',
+  'Martín García',
+  '098 460 9524'
 );
 ```
 

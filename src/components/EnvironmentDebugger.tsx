@@ -1,37 +1,63 @@
 // Debug component to verify environment variables in production
 // Add this to any component and check browser console after deployment
 
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 
-export function EnvironmentDebugger() {
+export const EnvironmentDebugger: React.FC = () => {
   useEffect(() => {
-    console.log('🔍 Environment Debug Info:');
-    console.log('Mode:', import.meta.env.MODE);
-    console.log('Dev:', import.meta.env.DEV);
-    console.log('Prod:', import.meta.env.PROD);
-    console.log('VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL);
-    console.log('VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'SET' : 'MISSING');
-    console.log('All VITE_ vars:', Object.keys(import.meta.env).filter(key => key.startsWith('VITE_')));
-    console.log('Full import.meta.env:', import.meta.env);
+    // Only run in development or when explicitly enabled
+    const shouldDebug = import.meta.env.DEV || import.meta.env.VITE_DEBUG_MODE === 'true';
+    
+    if (shouldDebug) {
+      console.log('\n🔍 Environment Debug Info:');
+      console.log('- MODE:', import.meta.env.MODE);
+      console.log('- DEV:', import.meta.env.DEV);
+      console.log('- PROD:', import.meta.env.PROD);
+      
+      // Check Supabase configuration
+      console.log('- VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL ? 
+        `${import.meta.env.VITE_SUPABASE_URL.substring(0, 40)}...` : 'MISSING');
+      console.log('- VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 
+        'SET' : 'MISSING');
+      
+      // List all VITE_ variables
+      const viteVars = Object.keys(import.meta.env)
+        .filter(key => key.startsWith('VITE_'))
+        .sort();
+      console.log('- All VITE_ vars:', viteVars);
+      
+      // Validation
+      if (!import.meta.env.VITE_SUPABASE_URL) {
+        console.error('❌ VITE_SUPABASE_URL is missing!');
+      }
+      if (!import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        console.error('❌ VITE_SUPABASE_ANON_KEY is missing!');
+      }
+      
+      if (import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        console.log('✅ Supabase environment variables are configured correctly');
+      }
+      
+      console.log('\n');
+    }
   }, []);
 
-  // Only show in development or if env vars are missing
-  if (import.meta.env.PROD && import.meta.env.VITE_SUPABASE_URL) {
+  // Don't render anything in production unless debug mode is enabled
+  const shouldShow = import.meta.env.DEV || import.meta.env.VITE_DEBUG_MODE === 'true';
+  
+  if (!shouldShow) {
     return null;
   }
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      right: 0,
-      background: 'red',
-      color: 'white',
-      padding: '10px',
-      zIndex: 9999,
-      fontSize: '12px'
-    }}>
-      🔍 ENV DEBUG: Check Console
+    <div className="fixed bottom-4 right-4 bg-black/80 text-white p-3 rounded-lg text-xs font-mono z-50 max-w-sm">
+      <div className="font-bold mb-2">🔍 Environment Debug</div>
+      <div>Mode: {import.meta.env.MODE}</div>
+      <div>Supabase URL: {import.meta.env.VITE_SUPABASE_URL ? '✅' : '❌'}</div>
+      <div>Anon Key: {import.meta.env.VITE_SUPABASE_ANON_KEY ? '✅' : '❌'}</div>
+      <div className="mt-2 text-xs opacity-75">
+        Check browser console for details
+      </div>
     </div>
   );
-}
+};

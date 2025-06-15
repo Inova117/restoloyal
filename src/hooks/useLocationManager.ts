@@ -32,11 +32,10 @@ export interface LocationCreate {
   address: string
   city: string
   state: string
-  zip_code?: string
+  postal_code?: string // Match actual DB schema
   phone?: string
   email?: string
   manager_name?: string
-  manager_email?: string
   latitude?: number
   longitude?: number
   settings?: any
@@ -47,10 +46,10 @@ export interface LocationUpdate {
   address?: string
   city?: string
   state?: string
-  zip_code?: string
+  postal_code?: string // Match actual DB schema
   phone?: string
   manager_name?: string
-  manager_email?: string
+  email?: string // Match actual DB schema
   is_active?: boolean
   latitude?: number
   longitude?: number
@@ -129,7 +128,7 @@ export function useLocationManager(clientId?: string) {
     }
   ]
 
-  // Fetch all locations for the client
+  // Fetch all locations for the client - USE DIRECT DATABASE ACCESS
   const fetchLocations = async (id?: string) => {
     const targetClientId = id || clientId
     if (!targetClientId) {
@@ -148,30 +147,58 @@ export function useLocationManager(clientId?: string) {
         return mockLocations
       }
 
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        throw new Error('Not authenticated')
+      // Use direct database access with RLS - client admins can read their client's locations
+      const { data: locationsData, error: fetchError } = await supabase
+        .from('locations')
+        .select(`
+          id,
+          name,
+          address,
+          city,
+          state,
+          postal_code,
+          phone,
+          email,
+          manager_name,
+          is_active,
+          created_at,
+          updated_at,
+          client_id
+        `)
+        .eq('client_id', targetClientId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+
+      if (fetchError) {
+        throw new Error(fetchError.message)
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/location-manager?client_id=${targetClientId}`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
+      // Transform data to match Location interface
+      const transformedLocations = (locationsData || []).map(loc => ({
+        id: loc.id,
+        restaurant_id: loc.client_id, // Map client_id to restaurant_id for compatibility
+        name: loc.name,
+        address: loc.address,
+        city: loc.city,
+        state: loc.state || '',
+        zip_code: loc.postal_code,
+        phone: loc.phone,
+        manager_name: loc.manager_name,
+        manager_email: loc.email,
+        is_active: loc.is_active,
+        latitude: undefined, // Not in current schema
+        longitude: undefined, // Not in current schema
+        created_at: loc.created_at,
+        updated_at: loc.updated_at,
+        restaurants: {
+          id: loc.client_id,
+          name: 'Restaurant', // Placeholder - can be enhanced later
+          client_id: loc.client_id
         }
-      )
+      })) as Location[]
 
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to fetch locations')
-      }
-
-      setLocations(result.data || [])
-      return result.data || []
+      setLocations(transformedLocations)
+      return transformedLocations
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch locations'
       setError(errorMessage)
@@ -186,7 +213,7 @@ export function useLocationManager(clientId?: string) {
     }
   }
 
-  // Create a new location
+  // Create a new location - USE EDGE FUNCTION
   const createLocation = async (locationData: LocationCreate, id?: string) => {
     const targetClientId = id || clientId
     if (!targetClientId) {
@@ -198,33 +225,51 @@ export function useLocationManager(clientId?: string) {
     setError(null)
 
     try {
-      // DIRECT DATABASE INSERT – bypass Edge Function
-      const currentUser = await supabase.auth.getUser()
-      if (!currentUser.data.user) {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
         throw new Error('Not authenticated')
       }
 
-      const insertData = {
-        ...locationData,
-        client_id: locationData.client_id ?? targetClientId,
-        is_active: true
+      // Use the create-location Edge Function to handle RLS properly
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-location`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: locationData.name,
+            address: locationData.address,
+            city: locationData.city,
+            state: locationData.state,
+            zip_code: locationData.postal_code, // Edge function expects zip_code
+            phone: locationData.phone,
+            email: locationData.email,
+            timezone: 'UTC',
+            settings: locationData.settings || {
+              pos_integration: true,
+              qr_code_enabled: true,
+              auto_stamp_on_purchase: true,
+              require_customer_phone: false
+            }
+          })
+        }
+      )
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create location')
       }
 
-      const { data: newLocation, error: insertError } = await supabase
-        .from('locations')
-        .insert([insertData])
-        .select('*')
-        .single()
-
-      if (insertError) {
-        throw new Error(insertError.message)
-      }
-
-      setLocations(prev => [...prev, newLocation as unknown as Location])
+      // Refresh locations list to include the new location
+      await fetchLocations(targetClientId)
 
       toast({
         title: 'Location Created',
-        description: `${newLocation.name} added successfully.`
+        description: result.message || `Location '${locationData.name}' created successfully.`
       })
       return true
     } catch (err) {
@@ -241,7 +286,7 @@ export function useLocationManager(clientId?: string) {
     }
   }
 
-  // Update an existing location
+  // Update an existing location - USE DIRECT DATABASE ACCESS
   const updateLocation = async (locationId: string, updates: LocationUpdate, id?: string) => {
     const targetClientId = id || clientId
     if (!targetClientId) {
@@ -253,39 +298,36 @@ export function useLocationManager(clientId?: string) {
     setError(null)
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        throw new Error('Not authenticated')
-      }
+      // Use direct database access with RLS - client admins can update their client's locations
+      const { data: updatedLocation, error: updateError } = await supabase
+        .from('locations')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', locationId)
+        .eq('client_id', targetClientId)
+        .select('*')
+        .single()
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/location-manager?client_id=${targetClientId}&location_id=${locationId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(updates)
-        }
-      )
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to update location')
+      if (updateError) {
+        throw new Error(updateError.message)
       }
 
       // Update the location in the list
       setLocations(prev => 
         prev.map(location => 
-          location.id === locationId ? result.data : location
+          location.id === locationId ? {
+            ...location,
+            ...updates,
+            updated_at: updatedLocation.updated_at
+          } : location
         )
       )
       
       toast({
         title: "Success",
-        description: result.message || "Location updated successfully"
+        description: "Location updated successfully"
       })
       return true
     } catch (err) {
@@ -302,7 +344,7 @@ export function useLocationManager(clientId?: string) {
     }
   }
 
-  // Delete a location
+  // Delete a location - USE DIRECT DATABASE ACCESS (soft delete)
   const deleteLocation = async (locationId: string, id?: string) => {
     const targetClientId = id || clientId
     if (!targetClientId) {
@@ -314,26 +356,18 @@ export function useLocationManager(clientId?: string) {
     setError(null)
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        throw new Error('Not authenticated')
-      }
+      // Use direct database access with RLS - soft delete by setting is_active to false
+      const { error: deleteError } = await supabase
+        .from('locations')
+        .update({ 
+          is_active: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', locationId)
+        .eq('client_id', targetClientId)
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/location-manager?client_id=${targetClientId}&location_id=${locationId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      )
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to delete location')
+      if (deleteError) {
+        throw new Error(deleteError.message)
       }
 
       // Remove the location from the list
@@ -341,7 +375,7 @@ export function useLocationManager(clientId?: string) {
       
       toast({
         title: "Success",
-        description: result.message || "Location deleted successfully"
+        description: "Location deleted successfully"
       })
       return true
     } catch (err) {

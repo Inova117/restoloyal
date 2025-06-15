@@ -54,7 +54,7 @@ export interface LocationUpdate {
 }
 
 // Temporary mock mode for testing (set to false when Edge Function is deployed)
-const MOCK_MODE = true
+const MOCK_MODE = false
 
 export function useLocationManager(clientId?: string) {
   const [locations, setLocations] = useState<Location[]>([])
@@ -195,35 +195,33 @@ export function useLocationManager(clientId?: string) {
     setError(null)
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
+      // DIRECT DATABASE INSERT – bypass Edge Function
+      const currentUser = await supabase.auth.getUser()
+      if (!currentUser.data.user) {
         throw new Error('Not authenticated')
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/location-manager?client_id=${targetClientId}`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(locationData)
-        }
-      )
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to create location')
+      const insertData = {
+        ...locationData,
+        client_id: targetClientId,
+        is_active: true
       }
 
-      // Add the new location to the list
-      setLocations(prev => [...prev, result.data])
-      
+      const { data: newLocation, error: insertError } = await supabase
+        .from('locations')
+        .insert([insertData])
+        .select('*')
+        .single()
+
+      if (insertError) {
+        throw new Error(insertError.message)
+      }
+
+      setLocations(prev => [...prev, newLocation as unknown as Location])
+
       toast({
-        title: "Success",
-        description: result.message || "Location created successfully"
+        title: 'Location Created',
+        description: `${newLocation.name} added successfully.`
       })
       return true
     } catch (err) {

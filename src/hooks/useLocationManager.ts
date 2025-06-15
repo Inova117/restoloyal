@@ -275,10 +275,7 @@ export function useLocationManager(clientId?: string) {
           .limit(1)
           .single()
 
-        if (!anyClientAdmin) {
-          throw new Error('No active client admin found for this client')
-        }
-        clientAdminId = anyClientAdmin.id
+        clientAdminId = anyClientAdmin ? anyClientAdmin.id : null as unknown as string
       } else {
         // Verify user is client admin for this client and get admin ID
         const { data: clientAdmin, error: adminError } = await supabase

@@ -341,8 +341,9 @@ export class SecurityLogger {
 export class CSPManager {
   // Apply Content Security Policy (only in production)
   static applyCSP() {
+    // TODO: Re-enable CSP after confirming Netlify deployment works
     // TEMPORARILY DISABLED - CSP might be blocking page load
-    console.log('🔧 CSP temporarily disabled for debugging');
+    console.log('🔧 CSP temporarily disabled for debugging - Re-enable after Netlify deployment is confirmed working');
     return;
 
     // Skip CSP in development to avoid blocking Vite's hot reload and inline scripts

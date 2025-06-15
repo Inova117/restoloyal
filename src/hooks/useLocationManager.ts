@@ -181,21 +181,7 @@ export function useLocationManager(clientId?: string) {
       // Now fetch locations - superadmins can see all, client admins see their client's
       let query = supabase
         .from('locations')
-        .select(`
-          id,
-          name,
-          address,
-          city,
-          state,
-          postal_code,
-          phone,
-          email,
-          manager_name,
-          is_active,
-          created_at,
-          updated_at,
-          client_id
-        `)
+        .select('id,name,address,city,state,postal_code,phone,email,manager_name,is_active,created_at,updated_at,client_id')
         .eq('is_active', true)
         .order('created_at', { ascending: false })
 

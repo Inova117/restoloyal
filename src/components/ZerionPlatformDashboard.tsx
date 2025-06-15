@@ -173,8 +173,8 @@ export default function ZerionPlatformDashboard() {
     try {
       const clientService = new ClientService()
       const { error } = await clientService.createClient({
-        name: newClient.name,
-        email: newClient.contactEmail,
+          name: newClient.name,
+          email: newClient.contactEmail,
         phone: newClient.contactPhone || undefined,
         subscription_plan: 'trial',
         contact_email: newClient.contactEmail,

@@ -148,7 +148,7 @@ export class ClientService extends BaseService {
         query = query.range(from, to);
 
         const result = await query;
-
+        
         if (result.error) {
           throw new Error(result.error.message);
         }
@@ -204,11 +204,11 @@ export class ClientService extends BaseService {
           .select('*')
           .eq('id', clientId)
           .single();
-
+        
         if (result.error) {
           throw new Error(result.error.message);
         }
-
+        
         // Return mock dashboard data for now
         const dashboardData = {
           client: result.data,
@@ -253,7 +253,7 @@ export class ClientService extends BaseService {
           .select('*')
           .eq('client_id', clientId)
           .order('created_at', { ascending: false });
-
+        
         if (result.error) {
           throw new Error(result.error.message);
         }
@@ -290,11 +290,11 @@ export class ClientService extends BaseService {
           .select('*')
           .eq('id', clientId)
           .single();
-
+        
         if (result.error) {
           throw new Error(result.error.message);
         }
-
+        
         // Return mock analytics data for now
         const analyticsData = {
           period: period,
@@ -462,25 +462,25 @@ export class ClientService extends BaseService {
         }
 
         // Transform response to match interface
-        const transformedData = {
+          const transformedData = {
           id: result.data.id,
           name: result.data.name,
           email: result.data.email,
           phone: result.data.phone,
           created_at: result.data.created_at,
           updated_at: result.data.updated_at,
-          subscription_plan: data.subscription_plan,
-          subscription_status: 'trial' as SubscriptionStatus,
-          contact_email: data.contact_email,
-          contact_phone: data.contact_phone || '',
-          restaurant_count: 1,
-          location_count: 0,
-          customer_count: 0,
-          monthly_revenue: 0,
-          growth_rate: 0
-        };
-
-        return { data: transformedData, error: null };
+            subscription_plan: data.subscription_plan,
+            subscription_status: 'trial' as SubscriptionStatus,
+            contact_email: data.contact_email,
+            contact_phone: data.contact_phone || '',
+            restaurant_count: 1,
+            location_count: 0,
+            customer_count: 0,
+            monthly_revenue: 0,
+            growth_rate: 0
+          };
+          
+          return { data: transformedData, error: null };
       },
       'Create Client',
       this.sanitizeForLogging(data)

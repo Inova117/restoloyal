@@ -416,14 +416,16 @@ export class ClientService extends BaseService {
 
     return this.executeMutation(
       async () => {
-        // DIRECT DATABASE INSERT - WORKING SOLUTION
+        const currentUser = await this.getCurrentUser();
+
         const clientData = {
           name: data.name,
           slug: data.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'),
           email: data.contact_email,
           phone: data.contact_phone || null,
           business_type: 'restaurant_chain',
-          status: 'active'
+          status: 'active',
+          created_by_superadmin_id: currentUser?.id || null
         };
 
         const result = await supabase

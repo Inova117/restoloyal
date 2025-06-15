@@ -138,7 +138,7 @@ export class ClientService extends BaseService {
           params.append('search', filters.search);
         }
 
-        const response = await fetch(`${this.getApiUrl('platform-management')}?${params}`, {
+        const response = await fetch(`${this.getApiUrl('Platform-Management')}?${params}`, {
           headers: await this.getAuthHeaders()
         });
         
@@ -197,7 +197,7 @@ export class ClientService extends BaseService {
 
     return this.executeQuery(
       async () => {
-        const response = await fetch(`${this.getApiUrl('client-administration')}?endpoint=dashboard&client_id=${clientId}`, {
+        const response = await fetch(`${this.getApiUrl('Platform-Management')}?endpoint=dashboard&client_id=${clientId}`, {
           headers: await this.getAuthHeaders()
         });
         
@@ -237,7 +237,7 @@ export class ClientService extends BaseService {
 
     return this.executeQuery(
       async () => {
-        const response = await fetch(`${this.getApiUrl('client-administration')}?endpoint=restaurants&client_id=${clientId}`, {
+        const response = await fetch(`${this.getApiUrl('Platform-Management')}?endpoint=restaurants&client_id=${clientId}`, {
           headers: await this.getAuthHeaders()
         });
         
@@ -277,7 +277,7 @@ export class ClientService extends BaseService {
 
     return this.executeQuery(
       async () => {
-        const response = await fetch(`${this.getApiUrl('client-administration')}?endpoint=analytics&client_id=${clientId}&period=${period}`, {
+        const response = await fetch(`${this.getApiUrl('Platform-Management')}?endpoint=analytics&client_id=${clientId}&period=${period}`, {
           headers: await this.getAuthHeaders()
         });
         
@@ -393,14 +393,14 @@ export class ClientService extends BaseService {
 
     return this.executeMutation(
       async () => {
-        // For now, we'll create a basic client record
-        // In the future, this would be expanded with proper client schema
+        // DIRECT DATABASE INSERT - WORKING SOLUTION
         const clientData = {
           name: data.name,
-          email: data.email,
-          phone: data.phone || null,
-          qr_code: `qr_${Date.now()}`, // Generate a simple QR code identifier
-          restaurant_id: `rest_${Date.now()}` // Generate a simple restaurant ID
+          slug: data.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'),
+          email: data.contact_email,
+          phone: data.contact_phone || null,
+          business_type: 'restaurant_chain',
+          status: 'active'
         };
 
         const result = await supabase
@@ -409,25 +409,30 @@ export class ClientService extends BaseService {
           .select()
           .single();
 
-        // Transform response
-        if (result.data) {
-          const transformedData = {
-            ...result.data,
-            subscription_plan: data.subscription_plan,
-            subscription_status: 'trial' as SubscriptionStatus,
-            contact_email: data.contact_email,
-            contact_phone: data.contact_phone || '',
-            restaurant_count: 1,
-            location_count: 0,
-            customer_count: 0,
-            monthly_revenue: 0,
-            growth_rate: 0
-          };
-          
-          return { data: transformedData, error: null };
+        if (result.error) {
+          throw new Error(result.error.message);
         }
 
-        return result;
+        // Transform response to match interface
+        const transformedData = {
+          id: result.data.id,
+          name: result.data.name,
+          email: result.data.email,
+          phone: result.data.phone,
+          created_at: result.data.created_at,
+          updated_at: result.data.updated_at,
+          subscription_plan: data.subscription_plan,
+          subscription_status: 'trial' as SubscriptionStatus,
+          contact_email: data.contact_email,
+          contact_phone: data.contact_phone || '',
+          restaurant_count: 1,
+          location_count: 0,
+          customer_count: 0,
+          monthly_revenue: 0,
+          growth_rate: 0
+        };
+
+        return { data: transformedData, error: null };
       },
       'Create Client',
       this.sanitizeForLogging(data)

@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "verify-env": "node scripts/verify-env.cjs",
-    "prebuild": "node scripts/verify-env.cjs"
+    "prebuild": "node scripts/verify-env.cjs",
+    "check-user-role": "node scripts/check-user-role.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

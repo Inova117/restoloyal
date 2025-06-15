@@ -147,28 +147,39 @@ export function useLocationManager(clientId?: string) {
         return mockLocations
       }
 
-      // First, verify the user is a client admin for this client
+      // First, verify the user is authenticated
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         throw new Error('Not authenticated')
       }
 
-      // Check if user is client admin for the target client
-      const { data: clientAdmin, error: adminError } = await supabase
-        .from('client_admins')
-        .select('id, client_id')
+      // Check if user is a superadmin first
+      const { data: superadminData } = await supabase
+        .from('superadmins')
+        .select('id, email')
         .eq('user_id', user.id)
-        .eq('client_id', targetClientId)
         .eq('is_active', true)
         .single()
 
-      if (adminError || !clientAdmin) {
-        throw new Error('Access denied: You are not an admin for this client')
+      let isSuperadmin = !!superadminData
+
+      // If not superadmin, check if user is client admin for the target client
+      if (!isSuperadmin) {
+        const { data: clientAdmin, error: adminError } = await supabase
+          .from('client_admins')
+          .select('id, client_id')
+          .eq('user_id', user.id)
+          .eq('client_id', targetClientId)
+          .eq('is_active', true)
+          .single()
+
+        if (adminError || !clientAdmin) {
+          throw new Error('Access denied: You are not an admin for this client')
+        }
       }
 
-      // Now fetch locations using the service role key to bypass RLS temporarily
-      // This is a workaround until user_roles table is properly populated
-      const { data: locationsData, error: fetchError } = await supabase
+      // Now fetch locations - superadmins can see all, client admins see their client's
+      let query = supabase
         .from('locations')
         .select(`
           id,
@@ -185,9 +196,15 @@ export function useLocationManager(clientId?: string) {
           updated_at,
           client_id
         `)
-        .eq('client_id', targetClientId)
         .eq('is_active', true)
         .order('created_at', { ascending: false })
+
+      // If not superadmin, filter by client_id
+      if (!isSuperadmin) {
+        query = query.eq('client_id', targetClientId)
+      }
+
+      const { data: locationsData, error: fetchError } = await query
 
       if (fetchError) {
         throw new Error(fetchError.message)
@@ -250,17 +267,46 @@ export function useLocationManager(clientId?: string) {
         throw new Error('Not authenticated')
       }
 
-      // Verify user is client admin for this client and get admin ID
-      const { data: clientAdmin, error: adminError } = await supabase
-        .from('client_admins')
-        .select('id, client_id')
+      // Check if user is a superadmin first
+      const { data: superadminData } = await supabase
+        .from('superadmins')
+        .select('id, email')
         .eq('user_id', user.id)
-        .eq('client_id', targetClientId)
         .eq('is_active', true)
         .single()
 
-      if (adminError || !clientAdmin) {
-        throw new Error('Access denied: Only client admins can create locations')
+      let isSuperadmin = !!superadminData
+      let clientAdminId: string
+
+      if (isSuperadmin) {
+        // Superadmins can create locations for any client
+        // We need to find any active client admin for this client to use as created_by_client_admin_id
+        const { data: anyClientAdmin } = await supabase
+          .from('client_admins')
+          .select('id')
+          .eq('client_id', targetClientId)
+          .eq('is_active', true)
+          .limit(1)
+          .single()
+
+        if (!anyClientAdmin) {
+          throw new Error('No active client admin found for this client')
+        }
+        clientAdminId = anyClientAdmin.id
+      } else {
+        // Verify user is client admin for this client and get admin ID
+        const { data: clientAdmin, error: adminError } = await supabase
+          .from('client_admins')
+          .select('id, client_id')
+          .eq('user_id', user.id)
+          .eq('client_id', targetClientId)
+          .eq('is_active', true)
+          .single()
+
+        if (adminError || !clientAdmin) {
+          throw new Error('Access denied: Only client admins can create locations')
+        }
+        clientAdminId = clientAdmin.id
       }
 
       // Validate required fields
@@ -299,7 +345,7 @@ export function useLocationManager(clientId?: string) {
           auto_stamp_on_purchase: true,
           require_customer_phone: false
         },
-        created_by_client_admin_id: clientAdmin.id // This is required for RLS
+        created_by_client_admin_id: clientAdminId // This is required for RLS
       }
 
       // Create the location using service role to bypass RLS temporarily
@@ -318,16 +364,17 @@ export function useLocationManager(clientId?: string) {
         .from('hierarchy_audit_log')
         .insert([{
           violation_type: 'location_creation',
-          attempted_action: 'create_location_via_hook',
+          attempted_action: isSuperadmin ? 'create_location_via_superadmin' : 'create_location_via_hook',
           user_id: user.id,
           target_table: 'locations',
           target_data: {
             location_id: newLocation.id,
             location_name: newLocation.name,
             client_id: targetClientId,
-            created_by_client_admin: clientAdmin.id
+            created_by_client_admin: clientAdminId,
+            created_by_superadmin: isSuperadmin
           },
-          error_message: 'Location created successfully via React hook'
+          error_message: `Location created successfully via ${isSuperadmin ? 'superadmin' : 'client admin'}`
         }])
 
       // Refresh locations list to include the new location
@@ -369,28 +416,46 @@ export function useLocationManager(clientId?: string) {
         throw new Error('Not authenticated')
       }
 
-      // Verify user is client admin for this client
-      const { data: clientAdmin, error: adminError } = await supabase
-        .from('client_admins')
-        .select('id, client_id')
+      // Check if user is a superadmin first
+      const { data: superadminData } = await supabase
+        .from('superadmins')
+        .select('id, email')
         .eq('user_id', user.id)
-        .eq('client_id', targetClientId)
         .eq('is_active', true)
         .single()
 
-      if (adminError || !clientAdmin) {
-        throw new Error('Access denied: Only client admins can update locations')
+      let isSuperadmin = !!superadminData
+
+      // If not superadmin, verify user is client admin for this client
+      if (!isSuperadmin) {
+        const { data: clientAdmin, error: adminError } = await supabase
+          .from('client_admins')
+          .select('id, client_id')
+          .eq('user_id', user.id)
+          .eq('client_id', targetClientId)
+          .eq('is_active', true)
+          .single()
+
+        if (adminError || !clientAdmin) {
+          throw new Error('Access denied: Only client admins can update locations')
+        }
       }
 
-      // Use direct database access with RLS - client admins can update their client's locations
-      const { data: updatedLocation, error: updateError } = await supabase
+      // Use direct database access - superadmins can update any location, client admins their client's locations
+      let updateQuery = supabase
         .from('locations')
         .update({
           ...updates,
           updated_at: new Date().toISOString()
         })
         .eq('id', locationId)
-        .eq('client_id', targetClientId)
+
+      // If not superadmin, also filter by client_id
+      if (!isSuperadmin) {
+        updateQuery = updateQuery.eq('client_id', targetClientId)
+      }
+
+      const { data: updatedLocation, error: updateError } = await updateQuery
         .select('*')
         .single()
 
@@ -445,28 +510,46 @@ export function useLocationManager(clientId?: string) {
         throw new Error('Not authenticated')
       }
 
-      // Verify user is client admin for this client
-      const { data: clientAdmin, error: adminError } = await supabase
-        .from('client_admins')
-        .select('id, client_id')
+      // Check if user is a superadmin first
+      const { data: superadminData } = await supabase
+        .from('superadmins')
+        .select('id, email')
         .eq('user_id', user.id)
-        .eq('client_id', targetClientId)
         .eq('is_active', true)
         .single()
 
-      if (adminError || !clientAdmin) {
-        throw new Error('Access denied: Only client admins can delete locations')
+      let isSuperadmin = !!superadminData
+
+      // If not superadmin, verify user is client admin for this client
+      if (!isSuperadmin) {
+        const { data: clientAdmin, error: adminError } = await supabase
+          .from('client_admins')
+          .select('id, client_id')
+          .eq('user_id', user.id)
+          .eq('client_id', targetClientId)
+          .eq('is_active', true)
+          .single()
+
+        if (adminError || !clientAdmin) {
+          throw new Error('Access denied: Only client admins can delete locations')
+        }
       }
 
-      // Use direct database access with RLS - soft delete by setting is_active to false
-      const { error: deleteError } = await supabase
+      // Use direct database access - superadmins can delete any location, client admins their client's locations
+      let deleteQuery = supabase
         .from('locations')
         .update({ 
           is_active: false,
           updated_at: new Date().toISOString()
         })
         .eq('id', locationId)
-        .eq('client_id', targetClientId)
+
+      // If not superadmin, also filter by client_id
+      if (!isSuperadmin) {
+        deleteQuery = deleteQuery.eq('client_id', targetClientId)
+      }
+
+      const { error: deleteError } = await deleteQuery
 
       if (deleteError) {
         throw new Error(deleteError.message)

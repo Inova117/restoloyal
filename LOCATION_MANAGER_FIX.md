@@ -9,6 +9,7 @@
 - Added explicit client admin validation in all CRUD operations
 - Each function now verifies the user is a client admin for the target client before proceeding
 - For CREATE operations, the `created_by_client_admin_id` is properly set from the validated admin record
+- **NEW**: Added superadmin support - superadmins can access all clients and locations
 
 ### 2. CORS 404 Error: "create-location" function not found
 **Root Cause**: Edge Functions are not deployed (requires Docker which is not available).
@@ -32,33 +33,47 @@ Fixed interface mismatches between TypeScript and actual database schema:
 ## Files Modified
 
 ### `src/hooks/useLocationManager.ts`
-- **fetchLocations()**: Added client admin validation before database SELECT
-- **createLocation()**: Added validation, duplicate checking, and proper hierarchy fields
-- **updateLocation()**: Added client admin validation before database UPDATE  
-- **deleteLocation()**: Added client admin validation before database soft DELETE
+- **fetchLocations()**: Added superadmin check, then client admin validation before database SELECT
+- **createLocation()**: Added superadmin support, validation, duplicate checking, and proper hierarchy fields
+- **updateLocation()**: Added superadmin support and client admin validation before database UPDATE  
+- **deleteLocation()**: Added superadmin support and client admin validation before database soft DELETE
 - **Interfaces**: Updated `LocationCreate` and `LocationUpdate` to match actual schema
+
+### `scripts/check-user-role.js` (NEW)
+- Diagnostic script to check current user's role and permissions
+- Tests superadmin status, client admin status, and user_roles table
+- Helps troubleshoot permission issues
 
 ## Technical Details
 
 ### Security Model
 ```
 1. User Authentication Check (auth.uid())
-2. Client Admin Validation (client_admins table lookup)
-3. Database Operation (with proper hierarchy fields)
-4. Audit Logging (for CREATE operations)
+2. Superadmin Check (superadmins table lookup)
+3. Client Admin Validation (client_admins table lookup) - if not superadmin
+4. Database Operation (with proper hierarchy fields)
+5. Audit Logging (for CREATE operations)
 ```
+
+### Access Control Matrix
+| User Type | Locations Access | Create | Update | Delete |
+|-----------|------------------|--------|--------|--------|
+| Superadmin | All locations | Any client | Any location | Any location |
+| Client Admin | Own client only | Own client only | Own client only | Own client only |
+| Other Users | None | None | None | None |
 
 ### Data Flow
 ```
-All Operations: Frontend → Client Admin Validation → Database Operation → Success/Error Response
+All Operations: Frontend → Auth Check → Superadmin Check → Client Admin Check → Database Operation → Success/Error Response
 ```
 
 ### Validation Steps
 1. **Authentication**: Verify user is logged in
-2. **Authorization**: Confirm user is client admin for target client
-3. **Business Logic**: Validate required fields, check duplicates
-4. **Database**: Execute operation with proper hierarchy fields
-5. **Audit**: Log creation events for compliance
+2. **Superadmin Check**: Check if user exists in superadmins table
+3. **Authorization**: If not superadmin, confirm user is client admin for target client
+4. **Business Logic**: Validate required fields, check duplicates
+5. **Database**: Execute operation with proper hierarchy fields
+6. **Audit**: Log creation events for compliance
 
 ### Error Handling
 - Descriptive error messages for each failure point
@@ -70,32 +85,52 @@ All Operations: Frontend → Client Admin Validation → Database Operation → 
 - ✅ TypeScript compilation passes
 - ✅ Build completes successfully  
 - ✅ No linter errors
+- ✅ Diagnostic script available
 - 🔄 Ready for runtime testing
 
 ## Key Improvements
 
 ### Security Enhancements
-- Explicit client admin validation prevents unauthorized access
+- Explicit superadmin and client admin validation prevents unauthorized access
 - Proper hierarchy field population ensures RLS compliance
 - Audit logging for all location creation events
+- Role-based access control with clear permission boundaries
 
 ### User Experience
 - Clear error messages for permission issues
 - Loading states during operations
 - Success confirmations via toast notifications
+- Superadmins get full access without client restrictions
 
 ### Code Quality
 - Consistent error handling patterns
 - Proper TypeScript typing
 - Schema-aligned interfaces
+- Comprehensive role checking
+
+## Diagnostic Tools
+
+### Check User Role Script
+```bash
+npm run check-user-role
+```
+
+This script will:
+- Show your current authentication status
+- Check if you're a superadmin
+- Check if you're a client admin (and for which clients)
+- Test RLS functions
+- Provide a summary of your access level
 
 ## Next Steps
-1. Test location creation in the browser
-2. Verify all CRUD operations work correctly
-3. Monitor audit logs for security compliance
-4. Consider populating user_roles table for future RLS optimization
+1. **Run diagnostic**: `npm run check-user-role` to check your current role
+2. **Test location operations** in the browser
+3. **Verify all CRUD operations** work correctly
+4. **Monitor audit logs** for security compliance
+5. **Consider populating user_roles table** for future RLS optimization
 
 ## Notes
+- **Superadmin Support**: Superadmins now have full access to all clients and locations
 - **Temporary Workaround**: Direct client admin validation bypasses the need for user_roles table population
 - **Security Maintained**: All operations still enforce proper hierarchy and permissions
 - **Audit Compliance**: Location creation events are logged for security monitoring
@@ -104,12 +139,19 @@ All Operations: Frontend → Client Admin Validation → Database Operation → 
 ## Troubleshooting
 
 ### If you still see permission errors:
-1. Verify the user is properly signed in
-2. Check that the user exists in the `client_admins` table
-3. Confirm the `client_id` matches between the request and the admin record
-4. Ensure the admin record has `is_active = true`
+1. **Run the diagnostic**: `npm run check-user-role`
+2. **Check your role**: Verify you're either a superadmin or client admin
+3. **Verify authentication**: Ensure you're properly signed in
+4. **Check database records**: Confirm your user exists in the appropriate admin tables
+5. **Validate client_id**: Ensure the client_id matches between request and admin record
 
 ### If you see network errors:
 1. Check Supabase connection and API keys
 2. Verify the database schema matches the expected structure
-3. Check browser network tab for detailed error messages 
+3. Check browser network tab for detailed error messages
+4. Run the diagnostic script to test database connectivity
+
+### Common Issues:
+- **"Access denied: You are not an admin for this client"**: You need to be added as a client admin for that specific client
+- **"No active client admin found for this client"**: The client has no active admins (superadmin issue)
+- **406 errors**: Usually RLS policy blocking access - check your role with the diagnostic script 

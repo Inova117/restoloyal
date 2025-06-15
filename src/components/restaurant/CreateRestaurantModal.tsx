@@ -184,6 +184,8 @@ export const CreateRestaurantModal: React.FC<CreateRestaurantModalProps> = ({
         description: formData.description.trim() || undefined,
         phone: formData.phone.trim() || undefined,
         email: formData.email.trim() || undefined,
+        contact_email: formData.email.trim() || undefined,
+        contact_phone: formData.phone.trim() || undefined,
         website: formData.website.trim() || undefined
       });
 

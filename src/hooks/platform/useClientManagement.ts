@@ -4,10 +4,10 @@
 // ============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
-import { clientService, type ClientData } from '@/services/platform';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import type { Location, LocationStaff, ClientDataForRestaurantView } from '@/types/database';
+import { clientService, type ClientData } from '../../services/platform';
+import { supabase } from '../../integrations/supabase/client';
+import { useToast } from '../use-toast';
+import type { Location, LocationStaff, ClientDataForRestaurantView } from '../../types/database';
 
 // ============================================================================
 // DATA TRANSFORMATION FUNCTIONS
@@ -62,34 +62,34 @@ const transformClientToRestaurantData = (client: ClientData): ClientDataForResta
 const loadClientMetrics = async (clientId: string) => {
   try {
     // Load locations count
-    const { count: locationsCount } = await (supabase as any)
+    const { count: locationsCount } = await supabase
       .from('locations')
       .select('*', { count: 'exact', head: true })
       .eq('client_id', clientId)
       .eq('is_active', true);
 
     // Load customers count
-    const { count: customersCount } = await (supabase as any)
+    const { count: customersCount } = await supabase
       .from('customers')
       .select('*', { count: 'exact', head: true })
       .eq('client_id', clientId)
-      .eq('is_active', true);
+      .eq('status', 'active');
 
     // Load staff count
-    const { count: staffCount } = await (supabase as any)
+    const { count: staffCount } = await supabase
       .from('location_staff')
       .select('*', { count: 'exact', head: true })
       .eq('client_id', clientId)
       .eq('is_active', true);
 
     // Load stamps count
-    const { count: stampsCount } = await (supabase as any)
+    const { count: stampsCount } = await supabase
       .from('stamps')
       .select('*', { count: 'exact', head: true })
       .eq('client_id', clientId);
 
     // Load rewards count
-    const { count: rewardsCount } = await (supabase as any)
+    const { count: rewardsCount } = await supabase
       .from('rewards')
       .select('*', { count: 'exact', head: true })
       .eq('client_id', clientId);
@@ -244,7 +244,7 @@ export const useClientManagement = (
   // Load locations for a client
   const loadLocations = useCallback(async (clientId: string) => {
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('locations')
         .select('*')
         .eq('client_id', clientId)
@@ -261,7 +261,7 @@ export const useClientManagement = (
   // Load staff for a client
   const loadStaff = useCallback(async (clientId: string, locationId?: string) => {
     try {
-      let query = (supabase as any)
+      let query = supabase
         .from('location_staff')
         .select(`
           *,
@@ -430,7 +430,7 @@ export const useClientManagement = (
   // Create location
   const createLocation = useCallback(async (data: any): Promise<boolean> => {
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('locations')
         .insert([data]);
 
@@ -462,7 +462,7 @@ export const useClientManagement = (
   // Create staff member
   const createStaffMember = useCallback(async (data: any): Promise<boolean> => {
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('location_staff')
         .insert([data]);
 

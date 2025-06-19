@@ -98,8 +98,8 @@ if (!SUPABASE_URL) {
 }
 const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/loyalty-manager`
 
-// Temporary mock mode for testing (set to false when Edge Function is deployed)
-const MOCK_MODE = true
+// Mock mode disabled – using real loyalty-manager Edge Function
+const MOCK_MODE = false
 
 export function useLoyaltyManager(clientId?: string) {
   const [loyaltySettings, setLoyaltySettings] = useState<LoyaltySettings[]>([])

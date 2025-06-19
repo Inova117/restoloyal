@@ -17,12 +17,14 @@ import {
   RefreshCw,
   Plus,
   TrendingUp,
-  Users
+  Users,
+  Mail
 } from 'lucide-react';
 import { ActivityTab } from './tabs/ActivityTab';
 import { TopClientsTab } from './tabs/TopClientsTab';
 import { ClientManagementTab } from './tabs/ClientManagementTab';
 import { AnalyticsTab } from './tabs/AnalyticsTab';
+import ContactFormsManager from '@/components/ContactFormsManager';
 import { SystemHealthCard } from './shared/SystemHealthCard';
 import { usePlatformMetrics } from '@/hooks/platform/usePlatformMetrics';
 import { useClientManagement } from '@/hooks/platform/useClientManagement';
@@ -92,6 +94,13 @@ export const PlatformDashboard: React.FC<PlatformDashboardProps> = ({
       icon: Building,
       component: ClientManagementTab,
       description: 'Manage all clients'
+    },
+    {
+      id: 'contact-forms',
+      label: 'Contact Forms',
+      icon: Mail,
+      component: ContactFormsManager,
+      description: 'Manage contact form submissions'
     },
     {
       id: 'analytics',
@@ -238,6 +247,10 @@ export const PlatformDashboard: React.FC<PlatformDashboardProps> = ({
                 <Building className="h-4 w-4 mr-2" />
                 Manage Clients
               </Button>
+              <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('contact-forms')}>
+                <Mail className="h-4 w-4 mr-2" />
+                Contact Forms
+              </Button>
               <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('analytics')}>
                 <BarChart3 className="h-4 w-4 mr-2" />
                 View Analytics
@@ -289,7 +302,7 @@ export const PlatformDashboard: React.FC<PlatformDashboardProps> = ({
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-              <TabsList className="grid w-full grid-cols-4 mb-8">
+              <TabsList className="grid w-full grid-cols-5 mb-8">
                 {tabs.map((tab) => (
                   <TabsTrigger 
                     key={tab.id} 

@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { motion, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion';
+import { motion, useScroll, useTransform } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AIChat } from '@/components/ui/AIChat';
 import ContactForm from '@/components/ContactForm';
-import { Play, ArrowRight, Check, Star, Smartphone, Shield, Zap, Globe, Users, BarChart3, CreditCard, Sparkles, ChevronDown, X } from 'lucide-react';
+import { ArrowRight, Check, Star, Smartphone, Shield, Zap, Globe, Users, BarChart3, CreditCard, Sparkles, ChevronDown, X } from 'lucide-react';
 
 const Landing = () => {
   const { scrollY } = useScroll();
@@ -14,13 +14,7 @@ const Landing = () => {
   const cardsY = useTransform(scrollY, [0, 800], [0, -200]);
   const textY = useTransform(scrollY, [0, 600], [0, -100]);
   
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  const springX = useSpring(mouseX, { stiffness: 100, damping: 30 });
-  const springY = useSpring(mouseY, { stiffness: 100, damping: 30 });
-
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [windowWidth, setWindowWidth] = useState(1024); // Default to desktop
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isContactFormOpen, setIsContactFormOpen] = useState(false);
@@ -102,26 +96,16 @@ const Landing = () => {
       setWindowWidth(window.innerWidth);
     };
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const x = (e.clientX / window.innerWidth - 0.5) * 2;
-      const y = (e.clientY / window.innerHeight - 0.5) * 2;
-      mouseX.set(x * 50);
-      mouseY.set(y * 50);
-      setMousePosition({ x: e.clientX, y: e.clientY });
-    };
-
     // Set initial window width
     if (typeof window !== 'undefined') {
       setWindowWidth(window.innerWidth);
       window.addEventListener('resize', handleResize);
     }
-
-    window.addEventListener('mousemove', handleMouseMove);
+    
     return () => {
       window.removeEventListener('resize', handleResize);
-      window.removeEventListener('mousemove', handleMouseMove);
     };
-  }, [mouseX, mouseY]);
+  }, []);
 
   return (
     <div className="min-h-screen bg-black text-white overflow-hidden">
@@ -140,14 +124,15 @@ const Landing = () => {
             <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:100px_100px] md:bg-[size:80px_80px] lg:bg-[size:100px_100px]"></div>
           </motion.div>
           
-          {/* Floating orbs - Hidden on mobile for performance */}
+          {/* Floating orbs - Simplified animations */}
           <div className="hidden md:block">
             <motion.div
-              style={{ x: springX, y: springY }}
               className="absolute top-1/4 left-1/4 w-64 h-64 md:w-96 md:h-96 bg-gradient-to-r from-emerald-500/30 to-teal-500/30 rounded-full blur-3xl"
               animate={{
                 scale: [1, 1.2, 1],
                 opacity: [0.3, 0.6, 0.3],
+                x: [0, 20, 0],
+                y: [0, 10, 0],
               }}
               transition={{
                 duration: 8,
@@ -157,11 +142,12 @@ const Landing = () => {
             />
             
             <motion.div
-              style={{ x: useTransform(springX, x => -x * 0.5), y: useTransform(springY, y => y * 0.5) }}
               className="absolute bottom-1/4 right-1/4 w-48 h-48 md:w-80 md:h-80 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-full blur-3xl"
               animate={{
                 scale: [1.2, 1, 1.2],
                 opacity: [0.2, 0.5, 0.2],
+                x: [0, -15, 0],
+                y: [0, 15, 0],
               }}
               transition={{
                 duration: 6,
@@ -171,8 +157,8 @@ const Landing = () => {
             />
           </div>
 
-          {/* Particle system - Reduced on mobile */}
-          {[...Array(windowWidth > 768 ? 50 : 20)].map((_, i) => (
+          {/* Particle system - Optimized for performance */}
+          {[...Array(windowWidth > 768 ? 30 : 10)].map((_, i) => (
             <motion.div
               key={i}
               className="absolute w-1 h-1 bg-emerald-400/60 rounded-full"
@@ -203,10 +189,7 @@ const Landing = () => {
           {/* Main hero card - Responsive positioning */}
           <motion.div
             className="absolute bottom-4 left-4 md:bottom-8 md:left-8"
-            style={{ 
-              x: useTransform(springX, x => x * 0.1), 
-              y: useTransform(springY, y => y * 0.1) 
-            }}
+
             animate={{
               rotateY: [0, 2, -2, 0],
               z: [0, 20, 0],
@@ -405,15 +388,6 @@ const Landing = () => {
               Contacto
               <ArrowRight className="ml-2 sm:ml-3 h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 group-hover:translate-x-1 transition-transform" />
             </Button>
-            <Button 
-              variant="ghost" 
-              size="lg" 
-              className="w-full sm:w-auto text-white border-2 border-white/20 hover:border-emerald-400/50 hover:bg-emerald-400/10 px-6 sm:px-8 md:px-10 py-3 sm:py-4 md:py-6 text-base sm:text-lg md:text-xl rounded-xl sm:rounded-2xl group backdrop-blur-sm"
-            >
-              <Play className="mr-2 sm:mr-3 h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 group-hover:scale-110 transition-transform" />
-              <span className="hidden sm:inline">Ver cómo funciona</span>
-              <span className="sm:hidden">Ver demo</span>
-            </Button>
           </motion.div>
         </motion.div>
 
@@ -434,22 +408,7 @@ const Landing = () => {
           </motion.div>
         </motion.div>
 
-        {/* Cursor follower effect - Fixed positioning */}
-        <motion.div
-          className="fixed w-4 h-4 bg-emerald-400/60 rounded-full pointer-events-none z-50 mix-blend-difference hidden md:block"
-          style={{
-            left: 0,
-            top: 0,
-            translateX: mousePosition.x - 8,
-            translateY: mousePosition.y - 8,
-          }}
-          animate={{
-            scale: [1, 1.5, 1],
-          }}
-          transition={{
-            duration: 0.3,
-          }}
-        />
+        {/* Cursor follower effect - Disabled for stability */}
 
         {/* AI Chat Bubble */}
         <motion.div

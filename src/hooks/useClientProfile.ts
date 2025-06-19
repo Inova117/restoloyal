@@ -69,7 +69,7 @@ export function useClientProfile(clientId?: string) {
       }
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/client-profile?client_id=${targetClientId}`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/Client-Profile?client_id=${targetClientId}`,
         {
           method: 'GET',
           headers: {
@@ -119,7 +119,7 @@ export function useClientProfile(clientId?: string) {
       }
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/client-profile`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/Client-Profile`,
         {
           method: 'PATCH',
           headers: {

@@ -1,14 +1,20 @@
 // Debug component to verify environment variables in production
 // Add this to any component and check browser console after deployment
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 export const EnvironmentDebugger: React.FC = () => {
+  const hasLoggedRef = useRef(false);
+
   useEffect(() => {
-    // Only run in development or when explicitly enabled
+    // Only run once and only in development or when explicitly enabled
+    if (hasLoggedRef.current) return;
+    
     const shouldDebug = import.meta.env.DEV || import.meta.env.VITE_DEBUG_MODE === 'true';
     
     if (shouldDebug) {
+      hasLoggedRef.current = true;
+      
       console.log('\n🔍 Environment Debug Info:');
       console.log('- MODE:', import.meta.env.MODE);
       console.log('- DEV:', import.meta.env.DEV);
@@ -40,7 +46,7 @@ export const EnvironmentDebugger: React.FC = () => {
       
       console.log('\n');
     }
-  }, []);
+  }, []); // Empty dependency array - only run once
 
   // Don't render anything in production unless debug mode is enabled
   const shouldShow = import.meta.env.DEV || import.meta.env.VITE_DEBUG_MODE === 'true';

@@ -17,6 +17,63 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      contact_forms: {
+        Row: {
+          id: string
+          name: string
+          email: string
+          company: string | null
+          phone: string | null
+          message: string
+          status: string
+          priority: string
+          source: string | null
+          user_agent: string | null
+          ip_address: string | null
+          metadata: Json | null
+          created_at: string
+          updated_at: string
+          read_at: string | null
+          replied_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          email: string
+          company?: string | null
+          phone?: string | null
+          message: string
+          status?: string
+          priority?: string
+          source?: string | null
+          user_agent?: string | null
+          ip_address?: string | null
+          metadata?: Json | null
+          created_at?: string
+          updated_at?: string
+          read_at?: string | null
+          replied_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          email?: string
+          company?: string | null
+          phone?: string | null
+          message?: string
+          status?: string
+          priority?: string
+          source?: string | null
+          user_agent?: string | null
+          ip_address?: string | null
+          metadata?: Json | null
+          created_at?: string
+          updated_at?: string
+          read_at?: string | null
+          replied_at?: string | null
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           id: string
@@ -637,3 +694,64 @@ export type Enums<
   : PublicEnumNameOrOptions extends keyof Database["public"]["Enums"]
     ? Database["public"]["Enums"][PublicEnumNameOrOptions]
     : never
+
+// ============================================================================
+// ADDITIONAL INTERFACES FOR AUDIT FIX
+// ============================================================================
+
+export interface UserRole {
+  id: string
+  user_id: string
+  tier: 'superadmin' | 'client_admin' | 'location_staff' | 'customer'
+  role_id: string
+  client_id: string | null
+  location_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PlatformMetrics {
+  totalClients: number
+  totalLocations: number
+  totalCustomers: number
+  totalStamps: number
+  totalRewards: number
+  activeClients: number
+  activeLocations: number
+  monthlyGrowth: number
+  revenue: number
+  conversionRate: number
+}
+
+export interface ActivityItem {
+  id: string
+  type: 'client_created' | 'location_created' | 'customer_registered' | 'stamp_added' | 'reward_redeemed' | 'staff_invited'
+  title: string
+  description: string
+  user_id?: string
+  client_id?: string
+  location_id?: string
+  metadata?: Record<string, any>
+  created_at: string
+  updated_at: string
+}
+
+export interface ClientWithStats {
+  id: string
+  name: string
+  slug: string
+  email: string | null
+  phone: string | null
+  business_type: string | null
+  status: string
+  settings: any
+  created_at: string
+  updated_at: string
+  // Computed stats
+  locationsCount: number
+  customersCount: number
+  staffCount: number
+  stampsCount: number
+  rewardsCount: number
+  revenue: number
+}

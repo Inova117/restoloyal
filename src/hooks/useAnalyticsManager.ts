@@ -79,8 +79,8 @@ if (!SUPABASE_URL) {
 }
 const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/analytics-report`
 
-// Temporary mock mode for testing (set to false when Edge Function is deployed)
-const MOCK_MODE = true
+// Mock mode disabled – using real analytics-report Edge Function
+const MOCK_MODE = false
 
 export function useAnalyticsManager(clientId?: string) {
   const [aggregateMetrics, setAggregateMetrics] = useState<AggregateMetrics | null>(null)

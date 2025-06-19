@@ -3,7 +3,7 @@ import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/integrations/supabase/client'
 
 // Mock mode flag - set to false when Edge Functions are deployed
-const MOCK_MODE = true
+const MOCK_MODE = false
 
 export interface CustomerRegistrationRequest {
   qr_code?: string
@@ -196,7 +196,7 @@ export const usePOSOperations = () => {
         throw new Error('No active session')
       }
 
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pos-operations/register-customer`, {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pos-operations?operation=register-customer`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -270,7 +270,7 @@ export const usePOSOperations = () => {
         throw new Error('No active session')
       }
 
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pos-operations/add-stamp`, {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pos-operations?operation=add-stamp`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -351,7 +351,7 @@ export const usePOSOperations = () => {
         throw new Error('No active session')
       }
 
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pos-operations/redeem-reward`, {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pos-operations?operation=redeem-reward`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -420,7 +420,7 @@ export const usePOSOperations = () => {
         throw new Error('No active session')
       }
 
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pos-operations/customer-lookup`, {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pos-operations?operation=customer-lookup`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,

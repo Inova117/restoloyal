@@ -362,7 +362,7 @@ export function useLocationManager(clientId?: string) {
 
       // Refresh locations list to include the new location
       await fetchLocations(targetClientId)
-
+      
       toast({
         title: 'Location Created',
         description: `Location '${locationData.name}' created successfully.`
@@ -436,7 +436,7 @@ export function useLocationManager(clientId?: string) {
       // If not superadmin, also filter by client_id
       if (!isSuperadmin) {
         updateQuery = updateQuery.eq('client_id', targetClientId)
-      }
+        }
 
       const { data: updatedLocation, error: updateError } = await updateQuery
         .select('*')

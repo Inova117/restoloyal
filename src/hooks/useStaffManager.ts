@@ -43,7 +43,7 @@ if (!SUPABASE_URL) {
 const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/staff-manager`
 
 // Temporary mock mode for testing (set to false when Edge Function is deployed)
-const MOCK_MODE = true
+const MOCK_MODE = false // ✅ Real Edge Function deployed
 
 export function useStaffManager(clientId?: string) {
   const [staff, setStaff] = useState<StaffMember[]>([])

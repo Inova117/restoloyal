@@ -75,7 +75,7 @@ if (!SUPABASE_URL) {
 const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/customer-manager`
 
 // Temporary mock mode for testing (set to false when Edge Function is deployed)
-const MOCK_MODE = true
+const MOCK_MODE = false // ✅ Real Edge Function deployed
 
 export function useCustomerManager(clientId?: string) {
   const [customers, setCustomers] = useState<Customer[]>([])

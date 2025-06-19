@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   X, 
   Phone, 
@@ -73,9 +74,36 @@ export default function ContactForm({ isOpen, onClose }: ContactFormProps) {
     setIsSubmitting(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      console.log('Form data:', formData);
+      // Preparar los datos para enviar a Supabase
+      const contactData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        company: formData.company,
+        message: `Tipo de negocio: ${formData.businessType}
+Número de ubicaciones: ${formData.numberOfLocations}
+Mejor horario para contactar: ${formData.preferredContactTime}
+
+Mensaje adicional:
+${formData.message || 'Sin mensaje adicional'}`,
+        source: 'landing_page',
+        user_agent: navigator.userAgent,
+        metadata: {
+          businessType: formData.businessType,
+          numberOfLocations: formData.numberOfLocations,
+          preferredContactTime: formData.preferredContactTime,
+          originalMessage: formData.message
+        }
+      };
+
+      // Guardar en Supabase
+      const { error } = await supabase
+        .from('contact_forms')
+        .insert(contactData);
+
+      if (error) {
+        throw error;
+      }
       
       setIsSubmitted(true);
       toast({
@@ -99,6 +127,7 @@ export default function ContactForm({ isOpen, onClose }: ContactFormProps) {
       }, 3000);
 
     } catch (error) {
+      console.error('Error submitting contact form:', error);
       toast({
         title: "Error",
         description: "Hubo un problema al enviar tu solicitud. Inténtalo de nuevo.",
